@@ -29,6 +29,7 @@ import "forge-std/Test.sol";
 import "forge-std/Script.sol";
 import "forge-std/StdJson.sol";
 import "forge-std/console.sol";
+import "../src/Settlement.sol";
 
 // # To deploy and verify our contract
 // anvil --block-time 5 -f https://ethereum-holesky-rpc.publicnode.com
@@ -40,9 +41,9 @@ contract IncredibleSquaringDeployer is Script, Utils {
     uint32 public constant TASK_DURATION_BLOCKS = 0;
     // TODO: right now hardcoding these (this address is anvil's default address 9)
     address public constant AGGREGATOR_ADDR =
-        0xa0Ee7A142d267C1f36714E4a8F75612F20a79720;
+    0xa0Ee7A142d267C1f36714E4a8F75612F20a79720;
     address public constant TASK_GENERATOR_ADDR =
-        0xa0Ee7A142d267C1f36714E4a8F75612F20a79720;
+    0xa0Ee7A142d267C1f36714E4a8F75612F20a79720;
 
     // ERC20 and Strategy: we need to deploy this erc20, create a strategy for it, and whitelist this strategy in the strategymanager
 
@@ -72,7 +73,8 @@ contract IncredibleSquaringDeployer is Script, Utils {
 
     IncredibleSquaringTaskManager public incredibleSquaringTaskManager;
     IIncredibleSquaringTaskManager
-        public incredibleSquaringTaskManagerImplementation;
+    public incredibleSquaringTaskManagerImplementation;
+    Settlement public settlement;
 
     function run() external {
         // Eigenlayer contracts
@@ -110,11 +112,11 @@ contract IncredibleSquaringDeployer is Script, Utils {
             )
         );
         StrategyBaseTVLLimits baseStrategyImplementation = StrategyBaseTVLLimits(
-                stdJson.readAddress(
-                    eigenlayerDeployedContracts,
-                    ".addresses.baseStrategyImplementation"
-                )
-            );
+            stdJson.readAddress(
+                eigenlayerDeployedContracts,
+                ".addresses.baseStrategyImplementation"
+            )
+        );
 
         address credibleSquaringCommunityMultisig = msg.sender;
         address credibleSquaringPauser = msg.sender;
@@ -304,25 +306,25 @@ contract IncredibleSquaringDeployer is Script, Utils {
             // for each quorum to setup, we need to define
             // QuorumOperatorSetParam, minimumStakeForQuorum, and strategyParams
             regcoord.IRegistryCoordinator.OperatorSetParam[]
-                memory quorumsOperatorSetParams = new regcoord.IRegistryCoordinator.OperatorSetParam[](
-                    numQuorums
-                );
+            memory quorumsOperatorSetParams = new regcoord.IRegistryCoordinator.OperatorSetParam[](
+                numQuorums
+            );
             for (uint i = 0; i < numQuorums; i++) {
                 // hard code these for now
                 quorumsOperatorSetParams[i] = regcoord
                     .IRegistryCoordinator
                     .OperatorSetParam({
-                        maxOperatorCount: 10000,
-                        kickBIPsOfOperatorStake: 15000,
-                        kickBIPsOfTotalStake: 100
-                    });
+                    maxOperatorCount: 10000,
+                    kickBIPsOfOperatorStake: 15000,
+                    kickBIPsOfTotalStake: 100
+                });
             }
             // set to 0 for every quorum
             uint96[] memory quorumsMinimumStake = new uint96[](numQuorums);
             IStakeRegistry.StrategyParams[][]
-                memory quorumsStrategyParams = new IStakeRegistry.StrategyParams[][](
-                    numQuorums
-                );
+            memory quorumsStrategyParams = new IStakeRegistry.StrategyParams[][](
+                numQuorums
+            );
             for (uint i = 0; i < numQuorums; i++) {
                 quorumsStrategyParams[i] = new IStakeRegistry.StrategyParams[](
                     numStrategies
@@ -330,13 +332,13 @@ contract IncredibleSquaringDeployer is Script, Utils {
                 for (uint j = 0; j < numStrategies; j++) {
                     quorumsStrategyParams[i][j] = IStakeRegistry
                         .StrategyParams({
-                            strategy: deployedStrategyArray[j],
-                            // setting this to 1 ether since the divisor is also 1 ether
-                            // therefore this allows an operator to register with even just 1 token
-                            // see https://github.com/Layr-Labs/eigenlayer-middleware/blob/m2-mainnet/src/StakeRegistry.sol#L484
-                            //    weight += uint96(sharesAmount * strategyAndMultiplier.multiplier / WEIGHTING_DIVISOR);
-                            multiplier: 1 ether
-                        });
+                        strategy: deployedStrategyArray[j],
+                    // setting this to 1 ether since the divisor is also 1 ether
+                    // therefore this allows an operator to register with even just 1 token
+                    // see https://github.com/Layr-Labs/eigenlayer-middleware/blob/m2-mainnet/src/StakeRegistry.sol#L484
+                    //    weight += uint96(sharesAmount * strategyAndMultiplier.multiplier / WEIGHTING_DIVISOR);
+                        multiplier: 1 ether
+                    });
                 }
             }
             incredibleSquaringProxyAdmin.upgradeAndCall(
@@ -393,6 +395,8 @@ contract IncredibleSquaringDeployer is Script, Utils {
             )
         );
 
+        settlement = new Settlement();
+
         // WRITE JSON DATA
         string memory parent_object = "parent object";
 
@@ -436,6 +440,12 @@ contract IncredibleSquaringDeployer is Script, Utils {
             deployed_addresses,
             "registryCoordinatorImplementation",
             address(registryCoordinatorImplementation)
+        );
+        // settlement
+        vm.serializeAddress(
+            deployed_addresses,
+            "settlement",
+            address(settlement)
         );
         string memory deployed_addresses_output = vm.serializeAddress(
             deployed_addresses,

@@ -40,7 +40,6 @@ func TestCallChallengeModule(t *testing.T) {
 	const BLOCK_NUMBER = uint32(100)
 
 	challenger.tasks[TASK_INDEX] = cstaskmanager.IIncredibleSquaringTaskManagerTask{
-		NumberToBeSquared:         big.NewInt(3),
 		TaskCreatedBlock:          1000,
 		QuorumNumbers:             aggtypes.QUORUM_NUMBERS.UnderlyingType(),
 		QuorumThresholdPercentage: uint32(aggtypes.QUORUM_THRESHOLD_NUMERATOR),
@@ -49,7 +48,6 @@ func TestCallChallengeModule(t *testing.T) {
 	challenger.taskResponses[TASK_INDEX] = chtypes.TaskResponseData{
 		TaskResponse: cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse{
 			ReferenceTaskIndex: TASK_INDEX,
-			NumberSquared:      big.NewInt(2),
 		},
 		TaskResponseMetadata: cstaskmanager.IIncredibleSquaringTaskManagerTaskResponseMetadata{
 			TaskResponsedBlock: 1001,
@@ -82,7 +80,6 @@ func TestRaiseChallenge(t *testing.T) {
 	const BLOCK_NUMBER = uint32(100)
 
 	challenger.tasks[TASK_INDEX] = cstaskmanager.IIncredibleSquaringTaskManagerTask{
-		NumberToBeSquared:         big.NewInt(3),
 		TaskCreatedBlock:          1000,
 		QuorumNumbers:             aggtypes.QUORUM_NUMBERS.UnderlyingType(),
 		QuorumThresholdPercentage: uint32(aggtypes.QUORUM_THRESHOLD_NUMERATOR),
@@ -91,7 +88,6 @@ func TestRaiseChallenge(t *testing.T) {
 	challenger.taskResponses[TASK_INDEX] = chtypes.TaskResponseData{
 		TaskResponse: cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse{
 			ReferenceTaskIndex: TASK_INDEX,
-			NumberSquared:      big.NewInt(9),
 		},
 		TaskResponseMetadata: cstaskmanager.IIncredibleSquaringTaskManagerTaskResponseMetadata{
 			TaskResponsedBlock: 1001,
@@ -122,7 +118,6 @@ func TestProcessTaskResponseLog(t *testing.T) {
 	const TASK_INDEX = 1
 
 	challenger.tasks[TASK_INDEX] = cstaskmanager.IIncredibleSquaringTaskManagerTask{
-		NumberToBeSquared:         big.NewInt(3),
 		TaskCreatedBlock:          1000,
 		QuorumNumbers:             aggtypes.QUORUM_NUMBERS.UnderlyingType(),
 		QuorumThresholdPercentage: uint32(aggtypes.QUORUM_THRESHOLD_NUMERATOR),
@@ -131,7 +126,6 @@ func TestProcessTaskResponseLog(t *testing.T) {
 	challenger.taskResponses[TASK_INDEX] = chtypes.TaskResponseData{
 		TaskResponse: cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse{
 			ReferenceTaskIndex: TASK_INDEX,
-			NumberSquared:      big.NewInt(9),
 		},
 		TaskResponseMetadata: cstaskmanager.IIncredibleSquaringTaskManagerTaskResponseMetadata{
 			TaskResponsedBlock: 1001,

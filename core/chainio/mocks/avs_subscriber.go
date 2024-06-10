@@ -9,6 +9,7 @@
 package mocks
 
 import (
+	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 	reflect "reflect"
 
 	contractIncredibleSquaringTaskManager "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/IncredibleSquaringTaskManager"
@@ -81,4 +82,12 @@ func (m *MockAvsSubscriberer) SubscribeToTaskResponses(arg0 chan *contractIncred
 func (mr *MockAvsSubscribererMockRecorder) SubscribeToTaskResponses(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeToTaskResponses", reflect.TypeOf((*MockAvsSubscriberer)(nil).SubscribeToTaskResponses), arg0)
+}
+
+// SubscribeToFulfillments mocks base method.
+func (m *MockAvsSubscriberer) SubscribeToFulfillment(arg0 chan *settlement.ContractSettlementFulfillEvent) event.Subscription {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribeToFulfillment", arg0)
+	ret0, _ := ret[0].(event.Subscription)
+	return ret0
 }

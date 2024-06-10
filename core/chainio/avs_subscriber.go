@@ -10,6 +10,7 @@ import (
 	sdklogging "github.com/Layr-Labs/eigensdk-go/logging"
 
 	cstaskmanager "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/IncredibleSquaringTaskManager"
+	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 	"github.com/Layr-Labs/incredible-squaring-avs/core/config"
 )
 
@@ -17,6 +18,7 @@ type AvsSubscriberer interface {
 	SubscribeToNewTasks(newTaskCreatedChan chan *cstaskmanager.ContractIncredibleSquaringTaskManagerNewTaskCreated) event.Subscription
 	SubscribeToTaskResponses(taskResponseLogs chan *cstaskmanager.ContractIncredibleSquaringTaskManagerTaskResponded) event.Subscription
 	ParseTaskResponded(rawLog types.Log) (*cstaskmanager.ContractIncredibleSquaringTaskManagerTaskResponded, error)
+	SubscribeToFulfillment(fulfillmentLogs chan *settlement.ContractSettlementFulfillEvent) event.Subscription
 }
 
 // Subscribers use a ws connection instead of http connection like Readers
@@ -32,13 +34,14 @@ func BuildAvsSubscriberFromConfig(config *config.Config) (*AvsSubscriber, error)
 	return BuildAvsSubscriber(
 		config.IncredibleSquaringRegistryCoordinatorAddr,
 		config.OperatorStateRetrieverAddr,
+		config.SettlementAddr,
 		config.EthWsClient,
 		config.Logger,
 	)
 }
 
-func BuildAvsSubscriber(registryCoordinatorAddr, blsOperatorStateRetrieverAddr gethcommon.Address, ethclient eth.Client, logger sdklogging.Logger) (*AvsSubscriber, error) {
-	avsContractBindings, err := NewAvsManagersBindings(registryCoordinatorAddr, blsOperatorStateRetrieverAddr, ethclient, logger)
+func BuildAvsSubscriber(registryCoordinatorAddr, blsOperatorStateRetrieverAddr, settlementAddr gethcommon.Address, ethclient eth.Client, logger sdklogging.Logger) (*AvsSubscriber, error) {
+	avsContractBindings, err := NewAvsManagersBindings(registryCoordinatorAddr, blsOperatorStateRetrieverAddr, settlementAddr, ethclient, logger)
 	if err != nil {
 		logger.Errorf("Failed to create contract bindings", "err", err)
 		return nil, err
@@ -54,9 +57,8 @@ func NewAvsSubscriber(avsContractBindings *AvsManagersBindings, logger sdkloggin
 }
 
 func (s *AvsSubscriber) SubscribeToNewTasks(newTaskCreatedChan chan *cstaskmanager.ContractIncredibleSquaringTaskManagerNewTaskCreated) event.Subscription {
-	start := uint64(1637957)
 	sub, err := s.AvsContractBindings.TaskManager.WatchNewTaskCreated(
-		&bind.WatchOpts{Start: &start}, newTaskCreatedChan, nil,
+		&bind.WatchOpts{}, newTaskCreatedChan, nil,
 	)
 	if err != nil {
 		s.logger.Error("Failed to subscribe to new TaskManager tasks", "err", err)
@@ -78,4 +80,15 @@ func (s *AvsSubscriber) SubscribeToTaskResponses(taskResponseChan chan *cstaskma
 
 func (s *AvsSubscriber) ParseTaskResponded(rawLog types.Log) (*cstaskmanager.ContractIncredibleSquaringTaskManagerTaskResponded, error) {
 	return s.AvsContractBindings.TaskManager.ContractIncredibleSquaringTaskManagerFilterer.ParseTaskResponded(rawLog)
+}
+
+func (s *AvsSubscriber) SubscribeToFulfillment(fulfillmentLogs chan *settlement.ContractSettlementFulfillEvent) event.Subscription {
+	sub, err := s.AvsContractBindings.Settlement.WatchFulfillEvent(
+		&bind.WatchOpts{}, fulfillmentLogs,
+	)
+	if err != nil {
+		s.logger.Error("Failed to subscribe to Fulfillment events", "err", err)
+	}
+	s.logger.Infof("Subscribed to Fulfillment events")
+	return sub
 }

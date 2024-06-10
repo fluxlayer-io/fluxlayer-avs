@@ -6,6 +6,7 @@ type NodeConfig struct {
 	OperatorAddress               string `yaml:"operator_address"`
 	OperatorStateRetrieverAddress string `yaml:"operator_state_retriever_address"`
 	AVSRegistryCoordinatorAddress string `yaml:"avs_registry_coordinator_address"`
+	SettlementAddress             string `yaml:"settlement_address"`
 	TokenStrategyAddr             string `yaml:"token_strategy_addr"`
 	EthRpcUrl                     string `yaml:"eth_rpc_url"`
 	EthWsUrl                      string `yaml:"eth_ws_url"`

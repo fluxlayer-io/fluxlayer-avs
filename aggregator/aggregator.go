@@ -2,10 +2,9 @@ package aggregator
 
 import (
 	"context"
-	"errors"
 	"github.com/Layr-Labs/eigensdk-go/chainio/clients/eth"
+	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 	"github.com/ethereum/go-ethereum/common"
-	"math/big"
 	"sync"
 	"time"
 
@@ -72,12 +71,14 @@ type Aggregator struct {
 	serverIpPortAddr string
 	ethClient        eth.Client
 	avsWriter        chainio.AvsWriterer
+	avsSubscriber    chainio.AvsSubscriberer
 	// aggregation related fields
 	blsAggregationService blsagg.BlsAggregationService
 	tasks                 map[types.TaskIndex]cstaskmanager.IIncredibleSquaringTaskManagerTask
 	tasksMu               sync.RWMutex
 	taskResponses         map[types.TaskIndex]map[sdktypes.TaskResponseDigest]cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse
 	taskResponsesMu       sync.RWMutex
+	fulfillmentChan       chan *settlement.ContractSettlementFulfillEvent
 }
 
 // NewAggregator creates a new Aggregator with the provided config.
@@ -92,6 +93,12 @@ func NewAggregator(c *config.Config) (*Aggregator, error) {
 	avsWriter, err := chainio.BuildAvsWriterFromConfig(c)
 	if err != nil {
 		c.Logger.Errorf("Cannot create avsWriter", "err", err)
+		return nil, err
+	}
+
+	avsSubscriber, err := chainio.BuildAvsSubscriber(c.IncredibleSquaringRegistryCoordinatorAddr, c.OperatorStateRetrieverAddr, c.SettlementAddr, c.EthWsClient, c.Logger)
+	if err != nil {
+		c.Logger.Errorf("Cannot create avsSubscriber", "err", err)
 		return nil, err
 	}
 
@@ -118,9 +125,11 @@ func NewAggregator(c *config.Config) (*Aggregator, error) {
 		serverIpPortAddr:      c.AggregatorServerIpPortAddr,
 		ethClient:             c.EthHttpClient,
 		avsWriter:             avsWriter,
+		avsSubscriber:         avsSubscriber,
 		blsAggregationService: blsAggregationService,
 		tasks:                 make(map[types.TaskIndex]cstaskmanager.IIncredibleSquaringTaskManagerTask),
 		taskResponses:         make(map[types.TaskIndex]map[sdktypes.TaskResponseDigest]cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse),
+		fulfillmentChan:       make(chan *settlement.ContractSettlementFulfillEvent),
 	}, nil
 }
 
@@ -134,34 +143,21 @@ func (agg *Aggregator) Start(ctx context.Context) error {
 	agg.logger.Infof("Aggregator set to send new task every 10 seconds...")
 	defer ticker.Stop()
 	taskNum := int64(0)
-	// get eth client from config
-	testTxHash, err := agg.firstTxHashInBlock(ctx)
-	if err != nil {
-		// ticker doesn't tick immediately, so we send the first task here
-		// see https://github.com/golang/go/issues/17601
-		_ = agg.sendNewTask(testTxHash)
-		taskNum++
-	}
+	fulfillmentSub := agg.avsSubscriber.SubscribeToFulfillment(agg.fulfillmentChan)
+	defer fulfillmentSub.Unsubscribe()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case blsAggServiceResp := <-agg.blsAggregationService.GetResponseChannel():
-			agg.logger.Info("Received response from blsAggregationService", "blsAggServiceResp", blsAggServiceResp)
-			agg.sendAggregatedResponseToContract(blsAggServiceResp)
-		case <-ticker.C:
-			testTxHash, err = agg.firstTxHashInBlock(ctx)
-			if err != nil {
-				continue
-			}
-			agg.logger.Info("Found the first hash in the latest block", "hash", testTxHash)
-			err = agg.sendNewTask(testTxHash)
+		case err := <-fulfillmentSub.Err():
+			agg.logger.Error("Error in websocket subscription", "err", err)
+			fulfillmentSub.Unsubscribe()
+			fulfillmentSub = agg.avsSubscriber.SubscribeToFulfillment(agg.fulfillmentChan)
+		case fulfillmentLog := <-agg.fulfillmentChan:
+			agg.logger.Info("Received fulfillment log", "fulfillmentLog", fulfillmentLog)
+			_ = agg.sendNewTask(fulfillmentLog.Raw.TxHash.Hex())
 			taskNum++
-			if err != nil {
-				// we log the errors inside sendNewTask() so here we just continue to the next task
-				continue
-			}
 		}
 	}
 }
@@ -205,21 +201,6 @@ func (agg *Aggregator) sendAggregatedResponseToContract(blsAggServiceResp blsagg
 	if err != nil {
 		agg.logger.Error("Aggregator failed to respond to task", "err", err)
 	}
-}
-
-func (agg *Aggregator) firstTxHashInBlock(ctx context.Context) (string, error) {
-	blockNumber, err := agg.ethClient.BlockNumber(ctx)
-	if err != nil {
-		return "", err
-	}
-	block, err := agg.ethClient.BlockByNumber(ctx, big.NewInt(int64(blockNumber)))
-	if err != nil {
-		return "", err
-	}
-	if len(block.Transactions()) == 0 {
-		return "", errors.New("no tx in block")
-	}
-	return block.Transactions()[0].Hash().String(), nil
 }
 
 // sendNewTask sends a new task to the task manager contract, and updates the Task dict struct

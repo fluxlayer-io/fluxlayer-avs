@@ -29,3 +29,5 @@ for contract in $avs_service_contracts; do
 done
 
 create_binding . ERC20Mock ./bindings
+
+create_binding . Settlement ./bindings

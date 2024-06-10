@@ -3,6 +3,7 @@ package chainio
 import (
 	"github.com/Layr-Labs/eigensdk-go/chainio/clients/eth"
 	"github.com/Layr-Labs/eigensdk-go/logging"
+	contractSettlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,11 +18,12 @@ import (
 type AvsManagersBindings struct {
 	TaskManager    *cstaskmanager.ContractIncredibleSquaringTaskManager
 	ServiceManager *csservicemanager.ContractIncredibleSquaringServiceManager
+	Settlement     *contractSettlement.ContractSettlement
 	ethClient      eth.Client
 	logger         logging.Logger
 }
 
-func NewAvsManagersBindings(registryCoordinatorAddr, operatorStateRetrieverAddr gethcommon.Address, ethclient eth.Client, logger logging.Logger) (*AvsManagersBindings, error) {
+func NewAvsManagersBindings(registryCoordinatorAddr, operatorStateRetrieverAddr, settlementAddr gethcommon.Address, ethclient eth.Client, logger logging.Logger) (*AvsManagersBindings, error) {
 	contractRegistryCoordinator, err := regcoord.NewContractRegistryCoordinator(registryCoordinatorAddr, ethclient)
 	if err != nil {
 		return nil, err
@@ -33,6 +35,10 @@ func NewAvsManagersBindings(registryCoordinatorAddr, operatorStateRetrieverAddr 
 	contractServiceManager, err := csservicemanager.NewContractIncredibleSquaringServiceManager(serviceManagerAddr, ethclient)
 	if err != nil {
 		logger.Error("Failed to fetch IServiceManager contract", "err", err)
+		return nil, err
+	}
+	settlement, err := contractSettlement.NewContractSettlement(settlementAddr, ethclient)
+	if err != nil {
 		return nil, err
 	}
 
@@ -52,6 +58,7 @@ func NewAvsManagersBindings(registryCoordinatorAddr, operatorStateRetrieverAddr 
 	return &AvsManagersBindings{
 		ServiceManager: contractServiceManager,
 		TaskManager:    contractTaskManager,
+		Settlement:     settlement,
 		ethClient:      ethclient,
 		logger:         logger,
 	}, nil

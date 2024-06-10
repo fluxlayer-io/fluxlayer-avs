@@ -33,13 +33,14 @@ type AvsReader struct {
 var _ AvsReaderer = (*AvsReader)(nil)
 
 func BuildAvsReaderFromConfig(c *config.Config) (*AvsReader, error) {
-	return BuildAvsReader(c.IncredibleSquaringRegistryCoordinatorAddr, c.OperatorStateRetrieverAddr, c.EthHttpClient, c.Logger)
+	return BuildAvsReader(c.IncredibleSquaringRegistryCoordinatorAddr, c.OperatorStateRetrieverAddr, c.SettlementAddr, c.EthHttpClient, c.Logger)
 }
-func BuildAvsReader(registryCoordinatorAddr, operatorStateRetrieverAddr gethcommon.Address, ethHttpClient eth.Client, logger logging.Logger) (*AvsReader, error) {
+func BuildAvsReader(registryCoordinatorAddr, operatorStateRetrieverAddr, settlementAddr gethcommon.Address, ethHttpClient eth.Client, logger logging.Logger) (*AvsReader, error) {
 	// log the addresses
 	logger.Info("RegistryCoordinatorAddr", "addr", registryCoordinatorAddr.Hex())
 	logger.Info("OperatorStateRetrieverAddr", "addr", operatorStateRetrieverAddr.Hex())
-	avsManagersBindings, err := NewAvsManagersBindings(registryCoordinatorAddr, operatorStateRetrieverAddr, ethHttpClient, logger)
+	logger.Info("SettlementAddr", "addr", settlementAddr.Hex())
+	avsManagersBindings, err := NewAvsManagersBindings(registryCoordinatorAddr, operatorStateRetrieverAddr, settlementAddr, ethHttpClient, logger)
 	if err != nil {
 		return nil, err
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -170,7 +171,9 @@ func NewOperatorFromConfig(c types.NodeConfig) (*Operator, error) {
 
 	avsWriter, err := chainio.BuildAvsWriter(
 		txMgr, common.HexToAddress(c.AVSRegistryCoordinatorAddress),
-		common.HexToAddress(c.OperatorStateRetrieverAddress), ethRpcClient, logger,
+		common.HexToAddress(c.OperatorStateRetrieverAddress),
+		common.HexToAddress(c.SettlementAddress),
+		ethRpcClient, logger,
 	)
 	if err != nil {
 		logger.Error("Cannot create AvsWriter", "err", err)
@@ -180,13 +183,14 @@ func NewOperatorFromConfig(c types.NodeConfig) (*Operator, error) {
 	avsReader, err := chainio.BuildAvsReader(
 		common.HexToAddress(c.AVSRegistryCoordinatorAddress),
 		common.HexToAddress(c.OperatorStateRetrieverAddress),
+		common.HexToAddress(c.SettlementAddress),
 		ethRpcClient, logger)
 	if err != nil {
 		logger.Error("Cannot create AvsReader", "err", err)
 		return nil, err
 	}
 	avsSubscriber, err := chainio.BuildAvsSubscriber(common.HexToAddress(c.AVSRegistryCoordinatorAddress),
-		common.HexToAddress(c.OperatorStateRetrieverAddress), ethWsClient, logger,
+		common.HexToAddress(c.OperatorStateRetrieverAddress), common.HexToAddress(c.SettlementAddress), ethWsClient, logger,
 	)
 	if err != nil {
 		logger.Error("Cannot create AvsSubscriber", "err", err)
@@ -295,12 +299,14 @@ func (o *Operator) Start(ctx context.Context) error {
 			sub = o.avsSubscriber.SubscribeToNewTasks(o.newTaskCreatedChan)
 		case newTaskCreatedLog := <-o.newTaskCreatedChan:
 			o.metrics.IncNumTasksReceived()
-			taskResponse := o.ProcessNewTaskCreatedLog(newTaskCreatedLog)
-			signedTaskResponse, err := o.SignTaskResponse(taskResponse)
-			if err != nil {
-				continue
-			}
-			go o.aggregatorRpcClient.SendSignedTaskResponseToAggregator(signedTaskResponse)
+			go func() {
+				taskResponse := o.ProcessNewTaskCreatedLog(newTaskCreatedLog)
+				signedTaskResponse, err := o.SignTaskResponse(taskResponse)
+				if err != nil {
+					return
+				}
+				go o.aggregatorRpcClient.SendSignedTaskResponseToAggregator(signedTaskResponse)
+			}()
 		}
 	}
 }
@@ -320,19 +326,32 @@ func (o *Operator) ProcessNewTaskCreatedLog(newTaskCreatedLog *cstaskmanager.Con
 		"QuorumThresholdPercentage", newTaskCreatedLog.Task.QuorumThresholdPercentage,
 	)
 	// check if txHash is mined
-	receipt, _ := o.ethClient.TransactionReceipt(context.Background(), common.HexToHash(txHash))
-	txSuccess := false
-	if receipt != nil {
-		o.logger.Info("tx verified by eth rpc", "txHash", txHash)
-		txSuccess = true
-	} else {
-		o.logger.Info("tx not found", "txHash", txHash)
-	}
+	txSuccess := o.waitForTransactionSuccess(context.Background(), txHash)
 	taskResponse := &cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse{
 		ReferenceTaskIndex: newTaskCreatedLog.TaskIndex,
 		TxSuccess:          txSuccess,
 	}
 	return taskResponse
+}
+
+func (o *Operator) waitForTransactionSuccess(ctx context.Context, txHash string) bool {
+	for {
+		select {
+		case <-ctx.Done():
+			// Context cancelled, stop waiting
+			return false
+		default:
+			// Check transaction status
+			receipt, _ := o.ethClient.TransactionReceipt(ctx, common.HexToHash(txHash))
+			if receipt != nil {
+				// Transaction is successful
+				return true
+			}
+			// Transaction not yet successful, wait for a while before checking again
+			o.logger.Info("Waiting for transaction to be mined", "txHash", txHash)
+			time.Sleep(time.Second * 5)
+		}
+	}
 }
 
 func (o *Operator) SignTaskResponse(taskResponse *cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse) (*aggregator.SignedTaskResponse, error) {
