@@ -395,7 +395,7 @@ contract IncredibleSquaringDeployer is Script, Utils {
             )
         );
 
-        settlement = new Settlement();
+        settlement = new Settlement(registryCoordinator);
 
         // WRITE JSON DATA
         string memory parent_object = "parent object";
