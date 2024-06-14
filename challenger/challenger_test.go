@@ -2,6 +2,7 @@ package challenger
 
 import (
 	"context"
+	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 	"math/big"
 	"testing"
 
@@ -10,7 +11,6 @@ import (
 	aggtypes "github.com/Layr-Labs/incredible-squaring-avs/aggregator/types"
 	"github.com/Layr-Labs/incredible-squaring-avs/challenger/mocks"
 	chtypes "github.com/Layr-Labs/incredible-squaring-avs/challenger/types"
-	cstaskmanager "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/IncredibleSquaringTaskManager"
 	chainiomocks "github.com/Layr-Labs/incredible-squaring-avs/core/chainio/mocks"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -39,28 +39,27 @@ func TestCallChallengeModule(t *testing.T) {
 	const TASK_INDEX = 1
 	const BLOCK_NUMBER = uint32(100)
 
-	challenger.tasks[TASK_INDEX] = cstaskmanager.IIncredibleSquaringTaskManagerTask{
-		TaskCreatedBlock:          1000,
+	challenger.tasks[TASK_INDEX] = settlement.SettlementOrder{
 		QuorumNumbers:             aggtypes.QUORUM_NUMBERS.UnderlyingType(),
 		QuorumThresholdPercentage: uint32(aggtypes.QUORUM_THRESHOLD_NUMERATOR),
 	}
 
 	challenger.taskResponses[TASK_INDEX] = chtypes.TaskResponseData{
-		TaskResponse: cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse{
-			ReferenceTaskIndex: TASK_INDEX,
+		OrderResponse: settlement.SettlementOrderResponse{
+			ReferenceOrderIndex: TASK_INDEX,
 		},
-		TaskResponseMetadata: cstaskmanager.IIncredibleSquaringTaskManagerTaskResponseMetadata{
-			TaskResponsedBlock: 1001,
-			HashOfNonSigners:   [32]byte{},
+		OrderResponseMetadata: settlement.SettlementOrderResponseMetadata{
+			OrderResponsedBlock: 1001,
+			HashOfNonSigners:    [32]byte{},
 		},
-		NonSigningOperatorPubKeys: []cstaskmanager.BN254G1Point{},
+		NonSigningOperatorPubKeys: []settlement.BN254G1Point{},
 	}
 
 	mockAvsWriterer.EXPECT().RaiseChallenge(
 		context.Background(),
 		challenger.tasks[TASK_INDEX],
-		challenger.taskResponses[TASK_INDEX].TaskResponse,
-		challenger.taskResponses[TASK_INDEX].TaskResponseMetadata,
+		challenger.taskResponses[TASK_INDEX].OrderResponse,
+		challenger.taskResponses[TASK_INDEX].OrderResponseMetadata,
 		challenger.taskResponses[TASK_INDEX].NonSigningOperatorPubKeys,
 	).Return(mocks.MockRaiseAndResolveChallengeCall(BLOCK_NUMBER, TASK_INDEX), nil)
 
@@ -79,28 +78,27 @@ func TestRaiseChallenge(t *testing.T) {
 	const TASK_INDEX = 1
 	const BLOCK_NUMBER = uint32(100)
 
-	challenger.tasks[TASK_INDEX] = cstaskmanager.IIncredibleSquaringTaskManagerTask{
-		TaskCreatedBlock:          1000,
+	challenger.tasks[TASK_INDEX] = settlement.SettlementOrder{
 		QuorumNumbers:             aggtypes.QUORUM_NUMBERS.UnderlyingType(),
 		QuorumThresholdPercentage: uint32(aggtypes.QUORUM_THRESHOLD_NUMERATOR),
 	}
 
 	challenger.taskResponses[TASK_INDEX] = chtypes.TaskResponseData{
-		TaskResponse: cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse{
-			ReferenceTaskIndex: TASK_INDEX,
+		OrderResponse: settlement.SettlementOrderResponse{
+			ReferenceOrderIndex: TASK_INDEX,
 		},
-		TaskResponseMetadata: cstaskmanager.IIncredibleSquaringTaskManagerTaskResponseMetadata{
-			TaskResponsedBlock: 1001,
-			HashOfNonSigners:   [32]byte{},
+		OrderResponseMetadata: settlement.SettlementOrderResponseMetadata{
+			OrderResponsedBlock: 1001,
+			HashOfNonSigners:    [32]byte{},
 		},
-		NonSigningOperatorPubKeys: []cstaskmanager.BN254G1Point{},
+		NonSigningOperatorPubKeys: []settlement.BN254G1Point{},
 	}
 
 	mockAvsWriterer.EXPECT().RaiseChallenge(
 		context.Background(),
 		challenger.tasks[TASK_INDEX],
-		challenger.taskResponses[TASK_INDEX].TaskResponse,
-		challenger.taskResponses[TASK_INDEX].TaskResponseMetadata,
+		challenger.taskResponses[TASK_INDEX].OrderResponse,
+		challenger.taskResponses[TASK_INDEX].OrderResponseMetadata,
 		challenger.taskResponses[TASK_INDEX].NonSigningOperatorPubKeys,
 	).Return(mocks.MockRaiseAndResolveChallengeCall(BLOCK_NUMBER, TASK_INDEX), nil)
 
@@ -117,26 +115,25 @@ func TestProcessTaskResponseLog(t *testing.T) {
 
 	const TASK_INDEX = 1
 
-	challenger.tasks[TASK_INDEX] = cstaskmanager.IIncredibleSquaringTaskManagerTask{
-		TaskCreatedBlock:          1000,
+	challenger.tasks[TASK_INDEX] = settlement.SettlementOrder{
 		QuorumNumbers:             aggtypes.QUORUM_NUMBERS.UnderlyingType(),
 		QuorumThresholdPercentage: uint32(aggtypes.QUORUM_THRESHOLD_NUMERATOR),
 	}
 
 	challenger.taskResponses[TASK_INDEX] = chtypes.TaskResponseData{
-		TaskResponse: cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse{
-			ReferenceTaskIndex: TASK_INDEX,
+		OrderResponse: settlement.SettlementOrderResponse{
+			ReferenceOrderIndex: TASK_INDEX,
 		},
-		TaskResponseMetadata: cstaskmanager.IIncredibleSquaringTaskManagerTaskResponseMetadata{
-			TaskResponsedBlock: 1001,
-			HashOfNonSigners:   [32]byte{},
+		OrderResponseMetadata: settlement.SettlementOrderResponseMetadata{
+			OrderResponsedBlock: 1001,
+			HashOfNonSigners:    [32]byte{},
 		},
-		NonSigningOperatorPubKeys: []cstaskmanager.BN254G1Point{},
+		NonSigningOperatorPubKeys: []settlement.BN254G1Point{},
 	}
 
-	taskResponseLog := cstaskmanager.ContractIncredibleSquaringTaskManagerTaskResponded{
-		TaskResponse:         challenger.taskResponses[TASK_INDEX].TaskResponse,
-		TaskResponseMetadata: challenger.taskResponses[TASK_INDEX].TaskResponseMetadata,
+	taskResponseLog := settlement.ContractSettlementOrderRespondedEvent{
+		OrderResponse:         challenger.taskResponses[TASK_INDEX].OrderResponse,
+		OrderResponseMetadata: challenger.taskResponses[TASK_INDEX].OrderResponseMetadata,
 		Raw: gethtypes.Log{
 			Address: common.HexToAddress("0x9e545e3c0baab3e08cdfd552c960a1050f373042"),
 			Topics: []common.Hash{
@@ -171,15 +168,14 @@ func createMockChallenger(mockCtrl *gomock.Controller) (*Challenger, *chainiomoc
 	mockAvsSubscriber := chainiomocks.NewMockAvsSubscriberer(mockCtrl)
 	mockEthClient := mockethclient.NewMockEthClient(mockCtrl)
 	challenger := &Challenger{
-		logger:             logger,
-		avsWriter:          mockAvsWriter,
-		avsReader:          mockAvsReader,
-		ethClient:          mockEthClient,
-		avsSubscriber:      mockAvsSubscriber,
-		tasks:              make(map[uint32]cstaskmanager.IIncredibleSquaringTaskManagerTask),
-		taskResponses:      make(map[uint32]chtypes.TaskResponseData),
-		taskResponseChan:   make(chan *cstaskmanager.ContractIncredibleSquaringTaskManagerTaskResponded),
-		newTaskCreatedChan: make(chan *cstaskmanager.ContractIncredibleSquaringTaskManagerNewTaskCreated),
+		logger:           logger,
+		avsWriter:        mockAvsWriter,
+		avsReader:        mockAvsReader,
+		ethClient:        mockEthClient,
+		avsSubscriber:    mockAvsSubscriber,
+		tasks:            make(map[uint32]settlement.SettlementOrder),
+		taskResponses:    make(map[uint32]chtypes.TaskResponseData),
+		taskResponseChan: make(chan *settlement.ContractSettlementOrderRespondedEvent),
 	}
 	return challenger, mockAvsWriter, mockAvsReader, mockAvsSubscriber, mockEthClient, nil
 }

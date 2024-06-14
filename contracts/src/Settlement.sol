@@ -14,7 +14,10 @@ OperatorStateRetriever
 {
     using BN254 for BN254.G1Point;
     // fulfill event
-    event fulfillEvent(address swapper, address inputToken, uint256 inputAmount, address outputToken, uint256 outputAmount);
+    event fulfillEvent(uint32 orderNum, address swapper, address inputToken, uint256 inputAmount, address outputToken, uint256 outputAmount,
+        uint32 quorumThresholdPercentage,
+        bytes quorumNumbers
+    );
     event OrderRespondedEvent(
         OrderResponse orderResponse,
         OrderResponseMetadata OrderResponseMetadata
@@ -49,7 +52,6 @@ OperatorStateRetriever
     // these signatures are aggregated and sent to the contract as response.
     struct OrderResponse {
         uint32 referenceOrderIndex;
-        bytes txToBeVerified;
         // This is just the response that the operator has to compute by itself.
         bool txSuccess;
     }
@@ -100,8 +102,8 @@ OperatorStateRetriever
             quorumNumbers,
             uint32(block.number)
         );
-        emit fulfillEvent(msg.sender, inputToken, inputAmount, outputToken, outputAmount);
         allOrderHashes[latestOrderNum] = keccak256(abi.encode(order));
+        emit fulfillEvent(latestOrderNum, msg.sender, inputToken, inputAmount, outputToken, outputAmount, quorumThresholdPercentage, quorumNumbers);
         latestOrderNum = latestOrderNum + 1;
     }
 

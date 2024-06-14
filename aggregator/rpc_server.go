@@ -3,10 +3,10 @@ package aggregator
 import (
 	"context"
 	"errors"
+	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 	"net/http"
 	"net/rpc"
 
-	cstaskmanager "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/IncredibleSquaringTaskManager"
 	"github.com/Layr-Labs/incredible-squaring-avs/core"
 
 	"github.com/Layr-Labs/eigensdk-go/crypto/bls"
@@ -39,7 +39,7 @@ func (agg *Aggregator) startServer(ctx context.Context) error {
 }
 
 type SignedTaskResponse struct {
-	TaskResponse cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse
+	TaskResponse settlement.SettlementOrderResponse
 	BlsSignature bls.Signature
 	OperatorId   types.OperatorId
 }
@@ -49,7 +49,7 @@ type SignedTaskResponse struct {
 // rpc framework forces a reply type to exist, so we put bool as a placeholder
 func (agg *Aggregator) ProcessSignedTaskResponse(signedTaskResponse *SignedTaskResponse, reply *bool) error {
 	agg.logger.Infof("Received signed task response: %#v", signedTaskResponse)
-	taskIndex := signedTaskResponse.TaskResponse.ReferenceTaskIndex
+	taskIndex := signedTaskResponse.TaskResponse.ReferenceOrderIndex
 	taskResponseDigest, err := core.GetTaskResponseDigest(&signedTaskResponse.TaskResponse)
 	if err != nil {
 		agg.logger.Error("Failed to get task response digest", "err", err)
@@ -57,7 +57,7 @@ func (agg *Aggregator) ProcessSignedTaskResponse(signedTaskResponse *SignedTaskR
 	}
 	agg.taskResponsesMu.Lock()
 	if _, ok := agg.taskResponses[taskIndex]; !ok {
-		agg.taskResponses[taskIndex] = make(map[sdktypes.TaskResponseDigest]cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse)
+		agg.taskResponses[taskIndex] = make(map[sdktypes.TaskResponseDigest]settlement.SettlementOrderResponse)
 	}
 	if _, ok := agg.taskResponses[taskIndex][taskResponseDigest]; !ok {
 		agg.taskResponses[taskIndex][taskResponseDigest] = signedTaskResponse.TaskResponse

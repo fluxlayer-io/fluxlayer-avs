@@ -2,9 +2,10 @@ package aggregator
 
 import (
 	"context"
-	"github.com/Layr-Labs/eigensdk-go/chainio/clients/eth"
+	"github.com/Layr-Labs/eigensdk-go/types"
+	aggtypes "github.com/Layr-Labs/incredible-squaring-avs/aggregator/types"
 	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/Layr-Labs/incredible-squaring-avs/core"
 	"sync"
 	"time"
 
@@ -16,21 +17,17 @@ import (
 	blsagg "github.com/Layr-Labs/eigensdk-go/services/bls_aggregation"
 	oprsinfoserv "github.com/Layr-Labs/eigensdk-go/services/operatorsinfo"
 	sdktypes "github.com/Layr-Labs/eigensdk-go/types"
-	"github.com/Layr-Labs/incredible-squaring-avs/aggregator/types"
-	"github.com/Layr-Labs/incredible-squaring-avs/core"
 	"github.com/Layr-Labs/incredible-squaring-avs/core/chainio"
 	"github.com/Layr-Labs/incredible-squaring-avs/core/config"
-
-	cstaskmanager "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/IncredibleSquaringTaskManager"
 )
 
 const (
 	// number of blocks after which a task is considered expired
 	// this hardcoded here because it's also hardcoded in the contracts, but should
 	// ideally be fetched from the contracts
-	taskChallengeWindowBlock = 100
+	taskChallengeWindowBlock = 100000
 	blockTimeSeconds         = 12 * time.Second
-	avsName                  = "incredible-squaring"
+	avsName                  = "flux-layer"
 )
 
 // Aggregator sends tasks (numbers to square) onchain, then listens for operator signed TaskResponses.
@@ -69,16 +66,15 @@ const (
 type Aggregator struct {
 	logger           logging.Logger
 	serverIpPortAddr string
-	ethClient        eth.Client
 	avsWriter        chainio.AvsWriterer
-	avsSubscriber    chainio.AvsSubscriberer
+	avsSubscriber    chainio.AvsSubscriber
 	// aggregation related fields
 	blsAggregationService blsagg.BlsAggregationService
-	tasks                 map[types.TaskIndex]cstaskmanager.IIncredibleSquaringTaskManagerTask
+	tasks                 map[types.TaskIndex]settlement.SettlementOrder
 	tasksMu               sync.RWMutex
-	taskResponses         map[types.TaskIndex]map[sdktypes.TaskResponseDigest]cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse
+	taskResponses         map[types.TaskIndex]map[sdktypes.TaskResponseDigest]settlement.SettlementOrderResponse
 	taskResponsesMu       sync.RWMutex
-	fulfillmentChan       chan *settlement.ContractSettlementFulfillEvent
+	fulfillCreatedChan    chan *settlement.ContractSettlementFulfillEvent
 }
 
 // NewAggregator creates a new Aggregator with the provided config.
@@ -93,12 +89,6 @@ func NewAggregator(c *config.Config) (*Aggregator, error) {
 	avsWriter, err := chainio.BuildAvsWriterFromConfig(c)
 	if err != nil {
 		c.Logger.Errorf("Cannot create avsWriter", "err", err)
-		return nil, err
-	}
-
-	avsSubscriber, err := chainio.BuildAvsSubscriber(c.IncredibleSquaringRegistryCoordinatorAddr, c.OperatorStateRetrieverAddr, c.SettlementAddr, c.EthWsClient, c.Logger)
-	if err != nil {
-		c.Logger.Errorf("Cannot create avsSubscriber", "err", err)
 		return nil, err
 	}
 
@@ -119,17 +109,17 @@ func NewAggregator(c *config.Config) (*Aggregator, error) {
 	operatorPubkeysService := oprsinfoserv.NewOperatorsInfoServiceInMemory(context.Background(), clients.AvsRegistryChainSubscriber, clients.AvsRegistryChainReader, c.Logger)
 	avsRegistryService := avsregistry.NewAvsRegistryServiceChainCaller(avsReader, operatorPubkeysService, c.Logger)
 	blsAggregationService := blsagg.NewBlsAggregatorService(avsRegistryService, c.Logger)
+	avsSubscriber, _ := chainio.BuildAvsSubscriber(c.SettlementAddr, c.EthWsClient, c.Logger)
 
 	return &Aggregator{
 		logger:                c.Logger,
 		serverIpPortAddr:      c.AggregatorServerIpPortAddr,
-		ethClient:             c.EthHttpClient,
 		avsWriter:             avsWriter,
-		avsSubscriber:         avsSubscriber,
 		blsAggregationService: blsAggregationService,
-		tasks:                 make(map[types.TaskIndex]cstaskmanager.IIncredibleSquaringTaskManagerTask),
-		taskResponses:         make(map[types.TaskIndex]map[sdktypes.TaskResponseDigest]cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse),
-		fulfillmentChan:       make(chan *settlement.ContractSettlementFulfillEvent),
+		avsSubscriber:         *avsSubscriber,
+		tasks:                 make(map[sdktypes.TaskIndex]settlement.SettlementOrder),
+		taskResponses:         make(map[types.TaskIndex]map[sdktypes.TaskResponseDigest]settlement.SettlementOrderResponse),
+		fulfillCreatedChan:    make(chan *settlement.ContractSettlementFulfillEvent),
 	}, nil
 }
 
@@ -137,27 +127,33 @@ func (agg *Aggregator) Start(ctx context.Context) error {
 	agg.logger.Infof("Starting aggregator.")
 	agg.logger.Infof("Starting aggregator rpc server.")
 	go agg.startServer(ctx)
-
-	// TODO(soubhik): refactor task generation/sending into a separate function that we can run as goroutine
-	ticker := time.NewTicker(10 * time.Second)
-	agg.logger.Infof("Aggregator set to send new task every 10 seconds...")
-	defer ticker.Stop()
-	taskNum := int64(0)
-	fulfillmentSub := agg.avsSubscriber.SubscribeToFulfillment(agg.fulfillmentChan)
-	defer fulfillmentSub.Unsubscribe()
+	sub := agg.avsSubscriber.SubscribeToFulfillment(agg.fulfillCreatedChan)
+	defer sub.Unsubscribe()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case err := <-fulfillmentSub.Err():
-			agg.logger.Error("Error in websocket subscription", "err", err)
-			fulfillmentSub.Unsubscribe()
-			fulfillmentSub = agg.avsSubscriber.SubscribeToFulfillment(agg.fulfillmentChan)
-		case fulfillmentLog := <-agg.fulfillmentChan:
-			agg.logger.Info("Received fulfillment log", "fulfillmentLog", fulfillmentLog)
-			_ = agg.sendNewTask(fulfillmentLog.Raw.TxHash.Hex())
-			taskNum++
+		case blsAggServiceResp := <-agg.blsAggregationService.GetResponseChannel():
+			// create new task, and fill it with dummy data
+			agg.logger.Info("Received response from blsAggregationService", "blsAggServiceResp", blsAggServiceResp)
+			agg.sendAggregatedResponseToContract(blsAggServiceResp)
+		case fulfillmentLog := <-agg.fulfillCreatedChan:
+			agg.logger.Info("Fulfillment log received", "fulfillmentLog", fulfillmentLog)
+			// create task
+			block := uint32(fulfillmentLog.Raw.BlockNumber)
+			agg.blsAggregationService.InitializeNewTask(fulfillmentLog.OrderNum, block, aggtypes.QUORUM_NUMBERS, types.QuorumThresholdPercentages{100}, time.Second*3600)
+			agg.tasksMu.Lock()
+			agg.tasks[fulfillmentLog.OrderNum] = settlement.SettlementOrder{
+				InputToken:                fulfillmentLog.InputToken,
+				OutputToken:               fulfillmentLog.OutputToken,
+				InputAmount:               fulfillmentLog.InputAmount,
+				OutputAmount:              fulfillmentLog.OutputAmount,
+				CreatedBlock:              block,
+				QuorumNumbers:             fulfillmentLog.QuorumNumbers,
+				QuorumThresholdPercentage: fulfillmentLog.QuorumThresholdPercentage,
+			}
+			agg.tasksMu.Unlock()
 		}
 	}
 }
@@ -169,15 +165,15 @@ func (agg *Aggregator) sendAggregatedResponseToContract(blsAggServiceResp blsagg
 		// panicing to help with debugging (fail fast), but we shouldn't panic if we run this in production
 		panic(blsAggServiceResp.Err)
 	}
-	nonSignerPubkeys := []cstaskmanager.BN254G1Point{}
+	nonSignerPubkeys := []settlement.BN254G1Point{}
 	for _, nonSignerPubkey := range blsAggServiceResp.NonSignersPubkeysG1 {
 		nonSignerPubkeys = append(nonSignerPubkeys, core.ConvertToBN254G1Point(nonSignerPubkey))
 	}
-	quorumApks := []cstaskmanager.BN254G1Point{}
+	quorumApks := []settlement.BN254G1Point{}
 	for _, quorumApk := range blsAggServiceResp.QuorumApksG1 {
 		quorumApks = append(quorumApks, core.ConvertToBN254G1Point(quorumApk))
 	}
-	nonSignerStakesAndSignature := cstaskmanager.IBLSSignatureCheckerNonSignerStakesAndSignature{
+	nonSignerStakesAndSignature := settlement.IBLSSignatureCheckerNonSignerStakesAndSignature{
 		NonSignerPubkeys:             nonSignerPubkeys,
 		QuorumApks:                   quorumApks,
 		ApkG2:                        core.ConvertToBN254G2Point(blsAggServiceResp.SignersApkG2),
@@ -193,46 +189,14 @@ func (agg *Aggregator) sendAggregatedResponseToContract(blsAggServiceResp blsagg
 	)
 	agg.tasksMu.RLock()
 	task := agg.tasks[blsAggServiceResp.TaskIndex]
+	agg.logger.Info("Task", "task", task)
 	agg.tasksMu.RUnlock()
 	agg.taskResponsesMu.RLock()
 	taskResponse := agg.taskResponses[blsAggServiceResp.TaskIndex][blsAggServiceResp.TaskResponseDigest]
+	agg.logger.Info("TaskResponse", "taskResponse", taskResponse)
 	agg.taskResponsesMu.RUnlock()
 	_, err := agg.avsWriter.SendAggregatedResponse(context.Background(), task, taskResponse, nonSignerStakesAndSignature)
 	if err != nil {
 		agg.logger.Error("Aggregator failed to respond to task", "err", err)
 	}
-}
-
-// sendNewTask sends a new task to the task manager contract, and updates the Task dict struct
-// with the information of operators opted into quorum 0 at the block of task creation.
-func (agg *Aggregator) sendNewTask(txHash string) error {
-	agg.logger.Info("Aggregator sending new task", "txToBeVerified", txHash)
-	txHashBytesSlice := common.FromHex(txHash)
-	// convert txHashBytesSlice to byte[32]
-	var txHashBytes [32]byte
-	copy(txHashBytes[:], txHashBytesSlice)
-	// Send number to square to the task manager contract
-	newTask, taskIndex, err := agg.avsWriter.SendNewTaskHashToVerify(context.Background(), txHashBytes, types.QUORUM_THRESHOLD_NUMERATOR, types.QUORUM_NUMBERS)
-	if err != nil {
-		agg.logger.Error("Aggregator failed to send number to square", "err", err)
-		return err
-	}
-
-	agg.tasksMu.Lock()
-	agg.tasks[taskIndex] = newTask
-	agg.tasksMu.Unlock()
-
-	quorumThresholdPercentages := make(sdktypes.QuorumThresholdPercentages, len(newTask.QuorumNumbers))
-	for i := range newTask.QuorumNumbers {
-		quorumThresholdPercentages[i] = sdktypes.QuorumThresholdPercentage(newTask.QuorumThresholdPercentage)
-	}
-	// TODO(samlaf): we use seconds for now, but we should ideally pass a blocknumber to the blsAggregationService
-	// and it should monitor the chain and only expire the task aggregation once the chain has reached that block number.
-	taskTimeToExpiry := taskChallengeWindowBlock * blockTimeSeconds
-	var quorumNums sdktypes.QuorumNums
-	for _, quorumNum := range newTask.QuorumNumbers {
-		quorumNums = append(quorumNums, sdktypes.QuorumNum(quorumNum))
-	}
-	agg.blsAggregationService.InitializeNewTask(taskIndex, newTask.TaskCreatedBlock, quorumNums, quorumThresholdPercentages, taskTimeToExpiry)
-	return nil
 }

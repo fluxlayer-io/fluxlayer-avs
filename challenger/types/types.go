@@ -1,17 +1,11 @@
 package types
 
 import (
-	"errors"
-
-	cstaskmanager "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/IncredibleSquaringTaskManager"
+	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 )
 
 type TaskResponseData struct {
-	TaskResponse              cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse
-	TaskResponseMetadata      cstaskmanager.IIncredibleSquaringTaskManagerTaskResponseMetadata
-	NonSigningOperatorPubKeys []cstaskmanager.BN254G1Point
+	OrderResponse             settlement.SettlementOrderResponse
+	OrderResponseMetadata     settlement.SettlementOrderResponseMetadata
+	NonSigningOperatorPubKeys []settlement.BN254G1Point
 }
-
-var (
-	NoErrorInTaskResponse = errors.New("100. Task response is valid")
-)

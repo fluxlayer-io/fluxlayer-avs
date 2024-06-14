@@ -2,6 +2,7 @@ package aggregator
 
 import (
 	"context"
+	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -11,7 +12,6 @@ import (
 	"github.com/Layr-Labs/eigensdk-go/crypto/bls"
 	sdktypes "github.com/Layr-Labs/eigensdk-go/types"
 	"github.com/Layr-Labs/incredible-squaring-avs/aggregator/types"
-	cstaskmanager "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/IncredibleSquaringTaskManager"
 	"github.com/Layr-Labs/incredible-squaring-avs/core"
 )
 
@@ -60,9 +60,9 @@ func TestProcessSignedTaskResponse(t *testing.T) {
 
 // mocks an operator signing on a task response
 func createMockSignedTaskResponse(mockTask MockTask, keypair bls.KeyPair) (*SignedTaskResponse, error) {
-	taskResponse := &cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse{
-		ReferenceTaskIndex: mockTask.TaskNum,
-		TxSuccess:          true,
+	taskResponse := &settlement.SettlementOrderResponse{
+		ReferenceOrderIndex: mockTask.TaskNum,
+		TxSuccess:           true,
 	}
 	taskResponseHash, err := core.GetTaskResponseDigest(taskResponse)
 	if err != nil {

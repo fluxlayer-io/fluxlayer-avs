@@ -1,25 +1,18 @@
 package aggregator
 
 import (
-	"context"
-	"math/big"
-	"testing"
-	"time"
-
+	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	gethcore "github.com/ethereum/go-ethereum/core"
-	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
+	"math/big"
 
-	"github.com/Layr-Labs/eigensdk-go/crypto/bls"
 	sdklogging "github.com/Layr-Labs/eigensdk-go/logging"
 	blsaggservmock "github.com/Layr-Labs/eigensdk-go/services/mocks/blsagg"
 	sdktypes "github.com/Layr-Labs/eigensdk-go/types"
 
-	"github.com/Layr-Labs/incredible-squaring-avs/aggregator/mocks"
 	"github.com/Layr-Labs/incredible-squaring-avs/aggregator/types"
-	cstaskmanager "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/IncredibleSquaringTaskManager"
 	chainiomocks "github.com/Layr-Labs/incredible-squaring-avs/core/chainio/mocks"
 )
 
@@ -33,53 +26,6 @@ type MockTask struct {
 	TxSuccess   bool
 }
 
-func TestSendNewTask(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	MOCK_OPERATOR_BLS_PRIVATE_KEY, err := bls.NewPrivateKey(MOCK_OPERATOR_BLS_PRIVATE_KEY_STRING)
-	assert.Nil(t, err)
-	MOCK_OPERATOR_KEYPAIR := bls.NewKeyPair(MOCK_OPERATOR_BLS_PRIVATE_KEY)
-	MOCK_OPERATOR_G1PUBKEY := MOCK_OPERATOR_KEYPAIR.GetPubKeyG1()
-	MOCK_OPERATOR_G2PUBKEY := MOCK_OPERATOR_KEYPAIR.GetPubKeyG2()
-
-	operatorPubkeyDict := map[sdktypes.OperatorId]types.OperatorInfo{
-		MOCK_OPERATOR_ID: {
-			OperatorPubkeys: sdktypes.OperatorPubkeys{
-				G1Pubkey: MOCK_OPERATOR_G1PUBKEY,
-				G2Pubkey: MOCK_OPERATOR_G2PUBKEY,
-			},
-			OperatorAddr: common.Address{},
-		},
-	}
-
-	aggregator, mockAvsWriterer, mockBlsAggService, err := createMockAggregator(mockCtrl, operatorPubkeyDict)
-	assert.Nil(t, err)
-
-	var TASK_INDEX = uint32(0)
-	var BLOCK_NUMBER = uint32(100)
-
-	var txToBeVerified = "0x5c8500d95f3c12403eb0cb43791581fdd58e3039257a9f93575c9e04d4f0557e"
-	// convert tx hash to byte array
-	txHashBytesSlice := common.FromHex(txToBeVerified)
-	// convert txHashBytesSlice to byte[32]
-	var TX_TO_BE_VERIFIED [32]byte
-	copy(TX_TO_BE_VERIFIED[:], txHashBytesSlice)
-	mockAvsWriterer.EXPECT().SendNewTaskNumberToSquare(
-		context.Background(), TX_TO_BE_VERIFIED, types.QUORUM_THRESHOLD_NUMERATOR, types.QUORUM_NUMBERS,
-	).Return(mocks.MockSendNewTaskNumberToSquareCall(BLOCK_NUMBER, TASK_INDEX, TX_TO_BE_VERIFIED))
-
-	// 100 blocks, each takes 12 seconds. We hardcode for now since aggregator also hardcodes this value
-	taskTimeToExpiry := 100 * 12 * time.Second
-	// make sure that initializeNewTask was called on the blsAggService
-	// maybe there's a better way to do this? There's a saying "don't mock 3rd party code"
-	// see https://hynek.me/articles/what-to-mock-in-5-mins/
-	mockBlsAggService.EXPECT().InitializeNewTask(TASK_INDEX, BLOCK_NUMBER, types.QUORUM_NUMBERS, sdktypes.QuorumThresholdPercentages{types.QUORUM_THRESHOLD_NUMERATOR}, taskTimeToExpiry)
-
-	err = aggregator.sendNewTask(txToBeVerified)
-	assert.Nil(t, err)
-}
-
 func createMockAggregator(
 	mockCtrl *gomock.Controller, operatorPubkeyDict map[sdktypes.OperatorId]types.OperatorInfo,
 ) (*Aggregator, *chainiomocks.MockAvsWriterer, *blsaggservmock.MockBlsAggregationService, error) {
@@ -91,8 +37,8 @@ func createMockAggregator(
 		logger:                logger,
 		avsWriter:             mockAvsWriter,
 		blsAggregationService: mockBlsAggregationService,
-		tasks:                 make(map[types.TaskIndex]cstaskmanager.IIncredibleSquaringTaskManagerTask),
-		taskResponses:         make(map[types.TaskIndex]map[sdktypes.TaskResponseDigest]cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse),
+		orders:                make(map[types.OrderIndex]settlement.SettlementOrder),
+		orderResponses:        make(map[types.OrderIndex]map[sdktypes.TaskResponseDigest]settlement.SettlementOrderResponse),
 	}
 	return aggregator, mockAvsWriter, mockBlsAggregationService, nil
 }

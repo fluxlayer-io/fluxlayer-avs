@@ -11,13 +11,13 @@ package mocks
 import (
 	context "context"
 	ecdsa "crypto/ecdsa"
+	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 	big "math/big"
 	reflect "reflect"
 
 	contractRegistryCoordinator "github.com/Layr-Labs/eigensdk-go/contracts/bindings/RegistryCoordinator"
 	bls "github.com/Layr-Labs/eigensdk-go/crypto/bls"
 	types "github.com/Layr-Labs/eigensdk-go/types"
-	contractIncredibleSquaringTaskManager "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/IncredibleSquaringTaskManager"
 	common "github.com/ethereum/go-ethereum/common"
 	types0 "github.com/ethereum/go-ethereum/core/types"
 	gomock "go.uber.org/mock/gomock"
@@ -62,7 +62,7 @@ func (mr *MockAvsWritererMockRecorder) DeregisterOperator(arg0, arg1, arg2 any) 
 }
 
 // RaiseChallenge mocks base method.
-func (m *MockAvsWriterer) RaiseChallenge(arg0 context.Context, arg1 contractIncredibleSquaringTaskManager.IIncredibleSquaringTaskManagerTask, arg2 contractIncredibleSquaringTaskManager.IIncredibleSquaringTaskManagerTaskResponse, arg3 contractIncredibleSquaringTaskManager.IIncredibleSquaringTaskManagerTaskResponseMetadata, arg4 []contractIncredibleSquaringTaskManager.BN254G1Point) (*types0.Receipt, error) {
+func (m *MockAvsWriterer) RaiseChallenge(arg0 context.Context, arg1 settlement.SettlementOrder, arg2 settlement.SettlementOrderResponse, arg3 settlement.SettlementOrderResponseMetadata, arg4 []settlement.BN254G1Point) (*types0.Receipt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RaiseChallenge", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(*types0.Receipt)
@@ -92,7 +92,7 @@ func (mr *MockAvsWritererMockRecorder) RegisterOperatorInQuorumWithAVSRegistryCo
 }
 
 // SendAggregatedResponse mocks base method.
-func (m *MockAvsWriterer) SendAggregatedResponse(arg0 context.Context, arg1 contractIncredibleSquaringTaskManager.IIncredibleSquaringTaskManagerTask, arg2 contractIncredibleSquaringTaskManager.IIncredibleSquaringTaskManagerTaskResponse, arg3 contractIncredibleSquaringTaskManager.IBLSSignatureCheckerNonSignerStakesAndSignature) (*types0.Receipt, error) {
+func (m *MockAvsWriterer) SendAggregatedResponse(arg0 context.Context, arg1 settlement.SettlementOrder, arg2 settlement.SettlementOrderResponse, arg3 settlement.IBLSSignatureCheckerNonSignerStakesAndSignature) (*types0.Receipt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendAggregatedResponse", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*types0.Receipt)
@@ -104,22 +104,6 @@ func (m *MockAvsWriterer) SendAggregatedResponse(arg0 context.Context, arg1 cont
 func (mr *MockAvsWritererMockRecorder) SendAggregatedResponse(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendAggregatedResponse", reflect.TypeOf((*MockAvsWriterer)(nil).SendAggregatedResponse), arg0, arg1, arg2, arg3)
-}
-
-// SendNewTaskNumberToSquare mocks base method.
-func (m *MockAvsWriterer) SendNewTaskHashToVerify(arg0 context.Context, arg1 [32]byte, arg2 types.QuorumThresholdPercentage, arg3 types.QuorumNums) (contractIncredibleSquaringTaskManager.IIncredibleSquaringTaskManagerTask, uint32, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendNewTaskHashToVerify", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(contractIncredibleSquaringTaskManager.IIncredibleSquaringTaskManagerTask)
-	ret1, _ := ret[1].(uint32)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// SendNewTaskNumberToSquare indicates an expected call of SendNewTaskNumberToSquare.
-func (mr *MockAvsWritererMockRecorder) SendNewTaskNumberToSquare(arg0, arg1, arg2, arg3 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendNewTaskHashToVerify", reflect.TypeOf((*MockAvsWriterer)(nil).SendNewTaskHashToVerify), arg0, arg1, arg2, arg3)
 }
 
 // UpdateStakesOfEntireOperatorSetForQuorums mocks base method.
