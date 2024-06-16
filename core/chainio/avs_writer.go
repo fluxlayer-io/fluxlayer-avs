@@ -2,38 +2,32 @@ package chainio
 
 import (
 	"context"
+	"errors"
 	"github.com/Layr-Labs/eigensdk-go/chainio/clients/avsregistry"
 	"github.com/Layr-Labs/eigensdk-go/chainio/clients/eth"
 	"github.com/Layr-Labs/eigensdk-go/chainio/txmgr"
-	logging "github.com/Layr-Labs/eigensdk-go/logging"
-	sdktypes "github.com/Layr-Labs/eigensdk-go/types"
+	"github.com/Layr-Labs/eigensdk-go/logging"
+	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	cstaskmanager "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/IncredibleSquaringTaskManager"
 	"github.com/Layr-Labs/incredible-squaring-avs/core/config"
 )
 
 type AvsWriterer interface {
 	avsregistry.AvsRegistryWriter
 
-	SendNewTaskHashToVerify(
-		ctx context.Context,
-		txHash [32]byte,
-		quorumThresholdPercentage sdktypes.QuorumThresholdPercentage,
-		quorumNumbers sdktypes.QuorumNums,
-	) (cstaskmanager.IIncredibleSquaringTaskManagerTask, uint32, error)
 	RaiseChallenge(
 		ctx context.Context,
-		task cstaskmanager.IIncredibleSquaringTaskManagerTask,
-		taskResponse cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse,
-		taskResponseMetadata cstaskmanager.IIncredibleSquaringTaskManagerTaskResponseMetadata,
-		pubkeysOfNonSigningOperators []cstaskmanager.BN254G1Point,
+		order settlement.SettlementOrder,
+		orderResponse settlement.SettlementOrderResponse,
+		orderResponseMetadata settlement.SettlementOrderResponseMetadata,
+		pubkeysOfNonSigningOperators []settlement.BN254G1Point,
 	) (*types.Receipt, error)
 	SendAggregatedResponse(ctx context.Context,
-		task cstaskmanager.IIncredibleSquaringTaskManagerTask,
-		taskResponse cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse,
-		nonSignerStakesAndSignature cstaskmanager.IBLSSignatureCheckerNonSignerStakesAndSignature,
+		order settlement.SettlementOrder,
+		orderResponse settlement.SettlementOrderResponse,
+		nonSignerStakesAndSignature settlement.IBLSSignatureCheckerNonSignerStakesAndSignature,
 	) (*types.Receipt, error)
 }
 
@@ -52,7 +46,7 @@ func BuildAvsWriterFromConfig(c *config.Config) (*AvsWriter, error) {
 }
 
 func BuildAvsWriter(txMgr txmgr.TxManager, registryCoordinatorAddr, operatorStateRetrieverAddr, settlmentAddr gethcommon.Address, ethHttpClient eth.Client, logger logging.Logger) (*AvsWriter, error) {
-	avsServiceBindings, err := NewAvsManagersBindings(registryCoordinatorAddr, operatorStateRetrieverAddr, settlmentAddr, ethHttpClient, logger)
+	avsServiceBindings, err := NewAvsManagersBindings(settlmentAddr, ethHttpClient, logger)
 	if err != nil {
 		logger.Error("Failed to create contract bindings", "err", err)
 		return nil, err
@@ -72,42 +66,18 @@ func NewAvsWriter(avsRegistryWriter avsregistry.AvsRegistryWriter, avsServiceBin
 	}
 }
 
-// returns the tx receipt, as well as the task index (which it gets from parsing the tx receipt logs)
-func (w *AvsWriter) SendNewTaskHashToVerify(ctx context.Context, txHashBytes [32]byte, quorumThresholdPercentage sdktypes.QuorumThresholdPercentage, quorumNumbers sdktypes.QuorumNums) (cstaskmanager.IIncredibleSquaringTaskManagerTask, uint32, error) {
-	txOpts, err := w.TxMgr.GetNoSendTxOpts()
-	if err != nil {
-		w.logger.Errorf("Error getting tx opts")
-		return cstaskmanager.IIncredibleSquaringTaskManagerTask{}, 0, err
-	}
-	tx, err := w.AvsContractBindings.TaskManager.CreateNewTask(txOpts, txHashBytes, uint32(quorumThresholdPercentage), quorumNumbers.UnderlyingType())
-	if err != nil {
-		w.logger.Errorf("Error assembling CreateNewTask tx")
-		return cstaskmanager.IIncredibleSquaringTaskManagerTask{}, 0, err
-	}
-	receipt, err := w.TxMgr.Send(ctx, tx)
-	if err != nil {
-		w.logger.Errorf("Error submitting CreateNewTask tx")
-		return cstaskmanager.IIncredibleSquaringTaskManagerTask{}, 0, err
-	}
-	newTaskCreatedEvent, err := w.AvsContractBindings.TaskManager.ContractIncredibleSquaringTaskManagerFilterer.ParseNewTaskCreated(*receipt.Logs[0])
-	if err != nil {
-		w.logger.Error("Aggregator failed to parse new task created event", "err", err)
-		return cstaskmanager.IIncredibleSquaringTaskManagerTask{}, 0, err
-	}
-	return newTaskCreatedEvent.Task, newTaskCreatedEvent.TaskIndex, nil
-}
-
 func (w *AvsWriter) SendAggregatedResponse(
-	ctx context.Context, task cstaskmanager.IIncredibleSquaringTaskManagerTask,
-	taskResponse cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse,
-	nonSignerStakesAndSignature cstaskmanager.IBLSSignatureCheckerNonSignerStakesAndSignature,
+	ctx context.Context,
+	order settlement.SettlementOrder,
+	orderResponse settlement.SettlementOrderResponse,
+	nonSignerStakesAndSignature settlement.IBLSSignatureCheckerNonSignerStakesAndSignature,
 ) (*types.Receipt, error) {
 	txOpts, err := w.TxMgr.GetNoSendTxOpts()
 	if err != nil {
 		w.logger.Errorf("Error getting tx opts")
 		return nil, err
 	}
-	tx, err := w.AvsContractBindings.TaskManager.RespondToTask(txOpts, task, taskResponse, nonSignerStakesAndSignature)
+	tx, err := w.AvsContractBindings.Settlement.RespondToFulfill(txOpts, order, orderResponse, nonSignerStakesAndSignature)
 	if err != nil {
 		w.logger.Error("Error submitting SubmitTaskResponse tx while calling respondToTask", "err", err)
 		return nil, err
@@ -122,25 +92,10 @@ func (w *AvsWriter) SendAggregatedResponse(
 
 func (w *AvsWriter) RaiseChallenge(
 	ctx context.Context,
-	task cstaskmanager.IIncredibleSquaringTaskManagerTask,
-	taskResponse cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse,
-	taskResponseMetadata cstaskmanager.IIncredibleSquaringTaskManagerTaskResponseMetadata,
-	pubkeysOfNonSigningOperators []cstaskmanager.BN254G1Point,
+	order settlement.SettlementOrder,
+	orderResponse settlement.SettlementOrderResponse,
+	orderResponseMetadata settlement.SettlementOrderResponseMetadata,
+	pubkeysOfNonSigningOperators []settlement.BN254G1Point,
 ) (*types.Receipt, error) {
-	txOpts, err := w.TxMgr.GetNoSendTxOpts()
-	if err != nil {
-		w.logger.Errorf("Error getting tx opts")
-		return nil, err
-	}
-	tx, err := w.AvsContractBindings.TaskManager.RaiseAndResolveChallenge(txOpts, task, taskResponse, taskResponseMetadata, pubkeysOfNonSigningOperators)
-	if err != nil {
-		w.logger.Errorf("Error assembling RaiseChallenge tx")
-		return nil, err
-	}
-	receipt, err := w.TxMgr.Send(ctx, tx)
-	if err != nil {
-		w.logger.Errorf("Error submitting RaiseChallenge tx")
-		return nil, err
-	}
-	return receipt, nil
+	return nil, errors.New("not implemented")
 }

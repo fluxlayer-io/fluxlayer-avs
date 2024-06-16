@@ -2,8 +2,7 @@ import "forge-std/Script.sol";
 import {Utils} from "./utils/Utils.sol";
 import "../src/Settlement.sol";
 
-
-contract FulfillOrder is Script, Utils {
+contract OrderResponse is Script, Utils {
     Settlement settlement;
 
     function run() external {
@@ -17,9 +16,7 @@ contract FulfillOrder is Script, Utils {
             )
         );
 
-        vm.startBroadcast();
-        bytes memory quorumNumbers = new bytes(1);
-        settlement.fulfill(address(1), 100, address(2), 200, 100, quorumNumbers);
-        vm.stopBroadcast();
+        bytes32 response = settlement.allOrderResponses(settlement.latestOrderNum() - 1);
+        console.logBytes32(response);
     }
 }

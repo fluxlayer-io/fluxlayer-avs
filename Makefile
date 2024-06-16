@@ -10,7 +10,7 @@ CHALLENGER_ECDSA_PRIV_KEY=0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9
 #CHAINID=31337
 CHAINID=17000
 # Make sure to update this if the strategy address changes
-# check in contracts/script/output/${CHAINID}/credible_squaring_avs_deployment_output.json
+# check in contracts/script/output/${CHAINID}/flux_layer_avs_deployment_output.json
 STRATEGY_ADDRESS=0x7FA5BFBaFf26F29399b684bb177763d59F9d3452
 DEPLOYMENT_FILES_DIR=contracts/script/output/${CHAINID}
 
@@ -70,7 +70,7 @@ send-fund: ## sends fund to the operator saved in tests/keys/test.ecdsa.key.json
 ____OFFCHAIN_SOFTWARE___: ## 
 start-aggregator: ## 
 	go run aggregator/cmd/main.go --config config-files/aggregator.yaml \
-		--credible-squaring-deployment ${DEPLOYMENT_FILES_DIR}/credible_squaring_avs_deployment_output.json \
+		--flux-layer-deployment ${DEPLOYMENT_FILES_DIR}/flux_layer_avs_deployment_output.json \
 		--ecdsa-private-key ${AGGREGATOR_ECDSA_PRIV_KEY} \
 		2>&1 | zap-pretty
 
@@ -80,7 +80,7 @@ start-operator: ##
 
 start-challenger: ## 
 	go run challenger/cmd/main.go --config config-files/challenger.yaml \
-		--credible-squaring-deployment ${DEPLOYMENT_FILES_DIR}/credible_squaring_avs_deployment_output.json \
+		--credible-squaring-deployment ${DEPLOYMENT_FILES_DIR}/flux_layer_avs_deployment_output.json \
 		--ecdsa-private-key ${CHALLENGER_ECDSA_PRIV_KEY} \
 		2>&1 | zap-pretty
 
