@@ -9,6 +9,7 @@
 package mocks
 
 import (
+	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 	reflect "reflect"
 
 	aggregator "github.com/Layr-Labs/incredible-squaring-avs/aggregator"
@@ -39,13 +40,13 @@ func (m *MockAggregatorRpcClienter) EXPECT() *MockAggregatorRpcClienterMockRecor
 }
 
 // SendSignedTaskResponseToAggregator mocks base method.
-func (m *MockAggregatorRpcClienter) SendSignedTaskResponseToAggregator(arg0 *aggregator.SignedTaskResponse) {
+func (m *MockAggregatorRpcClienter) SendSignedTaskResponseToAggregator(arg0 *settlement.ContractSettlementFulfillEvent, arg1 *aggregator.SignedTaskResponse) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SendSignedTaskResponseToAggregator", arg0)
+	m.ctrl.Call(m, "SendSignedTaskResponseToAggregator", arg0, arg1)
 }
 
 // SendSignedTaskResponseToAggregator indicates an expected call of SendSignedTaskResponseToAggregator.
-func (mr *MockAggregatorRpcClienterMockRecorder) SendSignedTaskResponseToAggregator(arg0 any) *gomock.Call {
+func (mr *MockAggregatorRpcClienterMockRecorder) SendSignedTaskResponseToAggregator(arg0 any, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendSignedTaskResponseToAggregator", reflect.TypeOf((*MockAggregatorRpcClienter)(nil).SendSignedTaskResponseToAggregator), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendSignedTaskResponseToAggregator", reflect.TypeOf((*MockAggregatorRpcClienter)(nil).SendSignedTaskResponseToAggregator), arg0, arg1)
 }

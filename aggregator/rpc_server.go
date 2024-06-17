@@ -3,9 +3,11 @@ package aggregator
 import (
 	"context"
 	"errors"
+	aggtypes "github.com/Layr-Labs/incredible-squaring-avs/aggregator/types"
 	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 	"net/http"
 	"net/rpc"
+	"time"
 
 	"github.com/Layr-Labs/incredible-squaring-avs/core"
 
@@ -44,10 +46,31 @@ type SignedTaskResponse struct {
 	OperatorId   types.OperatorId
 }
 
+type TaskResponseWrapper struct {
+	Fulfillment        *settlement.ContractSettlementFulfillEvent
+	SignedTaskResponse *SignedTaskResponse
+}
+
 // rpc endpoint which is called by operator
 // reply doesn't need to be checked. If there are no errors, the task response is accepted
 // rpc framework forces a reply type to exist, so we put bool as a placeholder
-func (agg *Aggregator) ProcessSignedTaskResponse(signedTaskResponse *SignedTaskResponse, reply *bool) error {
+func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapper, reply *bool) error {
+	signedTaskResponse := taskResponse.SignedTaskResponse
+	fulfillment := taskResponse.Fulfillment
+	agg.logger.Infof("Initializing new task for order %d, block %d", fulfillment.OrderNum, fulfillment.Raw.BlockNumber)
+	// TODO: set quorum number, threshold percentage, and timeout as constants
+	agg.blsAggregationService.InitializeNewTask(fulfillment.OrderNum, uint32(fulfillment.Raw.BlockNumber), aggtypes.QUORUM_NUMBERS, types.QuorumThresholdPercentages{100}, time.Second*3600)
+	agg.tasksMu.Lock()
+	agg.tasks[fulfillment.OrderNum] = settlement.SettlementOrder{
+		InputToken:                fulfillment.InputToken,
+		InputAmount:               fulfillment.InputAmount,
+		OutputToken:               fulfillment.OutputToken,
+		OutputAmount:              fulfillment.OutputAmount,
+		QuorumThresholdPercentage: fulfillment.QuorumThresholdPercentage,
+		QuorumNumbers:             fulfillment.QuorumNumbers,
+		CreatedBlock:              uint32(fulfillment.Raw.BlockNumber),
+	}
+	agg.tasksMu.Unlock()
 	agg.logger.Infof("Received signed task response: %#v", signedTaskResponse)
 	taskIndex := signedTaskResponse.TaskResponse.ReferenceOrderIndex
 	taskResponseDigest, err := core.GetTaskResponseDigest(&signedTaskResponse.TaskResponse)

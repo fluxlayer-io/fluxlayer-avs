@@ -54,7 +54,7 @@ func TestProcessSignedTaskResponse(t *testing.T) {
 	// see https://hynek.me/articles/what-to-mock-in-5-mins/
 	mockBlsAggServ.EXPECT().ProcessNewSignature(context.Background(), TASK_INDEX, signedTaskResponseDigest,
 		&signedTaskResponse.BlsSignature, signedTaskResponse.OperatorId)
-	err = aggregator.ProcessSignedTaskResponse(signedTaskResponse, nil)
+	err = aggregator.ProcessSignedTaskResponse(&TaskResponseWrapper{SignedTaskResponse: signedTaskResponse, Fulfillment: &settlement.ContractSettlementFulfillEvent{}}, nil)
 	assert.Nil(t, err)
 }
 
