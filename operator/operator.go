@@ -3,15 +3,16 @@ package operator
 import (
 	"context"
 	"fmt"
-	"math/big"
+	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
+	"golang.org/x/crypto/sha3"
 	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/Layr-Labs/incredible-squaring-avs/aggregator"
-	cstaskmanager "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/IncredibleSquaringTaskManager"
 	"github.com/Layr-Labs/incredible-squaring-avs/core"
 	"github.com/Layr-Labs/incredible-squaring-avs/core/chainio"
 	"github.com/Layr-Labs/incredible-squaring-avs/metrics"
@@ -58,7 +59,7 @@ type Operator struct {
 	operatorId       sdktypes.OperatorId
 	operatorAddr     common.Address
 	// receive new tasks in this chan (typically from listening to onchain event)
-	newTaskCreatedChan chan *cstaskmanager.ContractIncredibleSquaringTaskManagerNewTaskCreated
+	fulfillCreatedChan chan *settlement.ContractSettlementFulfillEvent
 	// ip address of aggregator
 	aggregatorServerIpPortAddr string
 	// rpc client to send signed task responses to aggregator
@@ -171,7 +172,9 @@ func NewOperatorFromConfig(c types.NodeConfig) (*Operator, error) {
 
 	avsWriter, err := chainio.BuildAvsWriter(
 		txMgr, common.HexToAddress(c.AVSRegistryCoordinatorAddress),
-		common.HexToAddress(c.OperatorStateRetrieverAddress), ethRpcClient, logger,
+		common.HexToAddress(c.OperatorStateRetrieverAddress),
+		common.HexToAddress(c.SettlementAddress),
+		ethRpcClient, logger,
 	)
 	if err != nil {
 		logger.Error("Cannot create AvsWriter", "err", err)
@@ -181,13 +184,14 @@ func NewOperatorFromConfig(c types.NodeConfig) (*Operator, error) {
 	avsReader, err := chainio.BuildAvsReader(
 		common.HexToAddress(c.AVSRegistryCoordinatorAddress),
 		common.HexToAddress(c.OperatorStateRetrieverAddress),
+		common.HexToAddress(c.SettlementAddress),
 		ethRpcClient, logger)
 	if err != nil {
 		logger.Error("Cannot create AvsReader", "err", err)
 		return nil, err
 	}
-	avsSubscriber, err := chainio.BuildAvsSubscriber(common.HexToAddress(c.AVSRegistryCoordinatorAddress),
-		common.HexToAddress(c.OperatorStateRetrieverAddress), ethWsClient, logger,
+	avsSubscriber, err := chainio.BuildAvsSubscriber(
+		common.HexToAddress(c.SettlementAddress), ethWsClient, logger,
 	)
 	if err != nil {
 		logger.Error("Cannot create AvsSubscriber", "err", err)
@@ -226,7 +230,7 @@ func NewOperatorFromConfig(c types.NodeConfig) (*Operator, error) {
 		operatorAddr:                       common.HexToAddress(c.OperatorAddress),
 		aggregatorServerIpPortAddr:         c.AggregatorServerIpPortAddress,
 		aggregatorRpcClient:                aggregatorRpcClient,
-		newTaskCreatedChan:                 make(chan *cstaskmanager.ContractIncredibleSquaringTaskManagerNewTaskCreated),
+		fulfillCreatedChan:                 make(chan *settlement.ContractSettlementFulfillEvent),
 		credibleSquaringServiceManagerAddr: common.HexToAddress(c.AVSRegistryCoordinatorAddress),
 		operatorId:                         [32]byte{0}, // this is set below
 
@@ -279,7 +283,9 @@ func (o *Operator) Start(ctx context.Context) error {
 	}
 
 	// TODO(samlaf): wrap this call with increase in avs-node-spec metric
-	sub := o.avsSubscriber.SubscribeToNewTasks(o.newTaskCreatedChan)
+	sub := o.avsSubscriber.SubscribeToFulfillment(o.fulfillCreatedChan)
+	defer sub.Unsubscribe()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -293,39 +299,63 @@ func (o *Operator) Start(ctx context.Context) error {
 			// TODO(samlaf): write unit tests to check if this fixed the issues we were seeing
 			sub.Unsubscribe()
 			// TODO(samlaf): wrap this call with increase in avs-node-spec metric
-			sub = o.avsSubscriber.SubscribeToNewTasks(o.newTaskCreatedChan)
-		case newTaskCreatedLog := <-o.newTaskCreatedChan:
+			sub = o.avsSubscriber.SubscribeToFulfillment(o.fulfillCreatedChan)
+		case fulfillmentLog := <-o.fulfillCreatedChan:
 			o.metrics.IncNumTasksReceived()
-			taskResponse := o.ProcessNewTaskCreatedLog(newTaskCreatedLog)
-			signedTaskResponse, err := o.SignTaskResponse(taskResponse)
-			if err != nil {
-				continue
-			}
-			go o.aggregatorRpcClient.SendSignedTaskResponseToAggregator(signedTaskResponse)
+			o.logger.Info("Received fulfillment log", "fulfillmentLog", fulfillmentLog)
+			go func() {
+				taskResponse := o.ProcessNewFulfillmentLog(fulfillmentLog)
+				signedTaskResponse, err := o.SignTaskResponse(taskResponse)
+				if err != nil {
+					return
+				}
+				go o.aggregatorRpcClient.SendSignedTaskResponseToAggregator(fulfillmentLog, signedTaskResponse)
+			}()
 		}
 	}
 }
 
-// Takes a NewTaskCreatedLog struct as input and returns a TaskResponseHeader struct.
+// Takes a ContractSettlementFulfillEvent struct as input and returns a TaskResponseHeader struct.
 // The TaskResponseHeader struct is the struct that is signed and sent to the contract as a task response.
-func (o *Operator) ProcessNewTaskCreatedLog(newTaskCreatedLog *cstaskmanager.ContractIncredibleSquaringTaskManagerNewTaskCreated) *cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse {
-	o.logger.Debug("Received new task", "task", newTaskCreatedLog)
-	o.logger.Info("Received new task",
-		"numberToBeSquared", newTaskCreatedLog.Task.NumberToBeSquared,
-		"taskIndex", newTaskCreatedLog.TaskIndex,
-		"taskCreatedBlock", newTaskCreatedLog.Task.TaskCreatedBlock,
-		"quorumNumbers", newTaskCreatedLog.Task.QuorumNumbers,
-		"QuorumThresholdPercentage", newTaskCreatedLog.Task.QuorumThresholdPercentage,
+func (o *Operator) ProcessNewFulfillmentLog(fulfillLog *settlement.ContractSettlementFulfillEvent) *settlement.SettlementOrderResponse {
+	// convert bytes to hex
+	o.logger.Info("Received new fulfill event",
+		"txHashToBeVerified", fulfillLog.Raw.TxHash.Hex(),
 	)
-	numberSquared := big.NewInt(0).Exp(newTaskCreatedLog.Task.NumberToBeSquared, big.NewInt(2), nil)
-	taskResponse := &cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse{
-		ReferenceTaskIndex: newTaskCreatedLog.TaskIndex,
-		NumberSquared:      numberSquared,
+	var txBytes [32]byte
+	hasher := sha3.NewLegacyKeccak256()
+	hasher.Write(fulfillLog.Raw.TxHash.Bytes())
+	copy(txBytes[:], hasher.Sum(nil)[:32])
+	// check if txHash is mined
+	txSuccess := o.waitForTransactionSuccess(context.Background(), fulfillLog.Raw.TxHash.Hex())
+	taskResponse := &settlement.SettlementOrderResponse{
+		ReferenceOrderIndex: fulfillLog.OrderNum,
+		TxSuccess:           txSuccess,
 	}
 	return taskResponse
 }
 
-func (o *Operator) SignTaskResponse(taskResponse *cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse) (*aggregator.SignedTaskResponse, error) {
+func (o *Operator) waitForTransactionSuccess(ctx context.Context, txHash string) bool {
+	for {
+		select {
+		case <-ctx.Done():
+			// Context cancelled, stop waiting
+			return false
+		default:
+			// Check transaction status
+			receipt, _ := o.ethClient.TransactionReceipt(ctx, common.HexToHash(txHash))
+			if receipt != nil {
+				// Transaction is successful
+				return true
+			}
+			// Transaction not yet successful, wait for a while before checking again
+			o.logger.Info("Waiting for transaction to be mined", "txHash", txHash)
+			time.Sleep(time.Second * 5)
+		}
+	}
+}
+
+func (o *Operator) SignTaskResponse(taskResponse *settlement.SettlementOrderResponse) (*aggregator.SignedTaskResponse, error) {
 	taskResponseHash, err := core.GetTaskResponseDigest(taskResponse)
 	if err != nil {
 		o.logger.Error("Error getting task response header hash. skipping task (this is not expected and should be investigated)", "err", err)

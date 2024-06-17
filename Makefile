@@ -7,10 +7,11 @@ help:
 AGGREGATOR_ECDSA_PRIV_KEY=0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6
 CHALLENGER_ECDSA_PRIV_KEY=0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a
 
-CHAINID=31337
+#CHAINID=31337
+CHAINID=17000
 # Make sure to update this if the strategy address changes
-# check in contracts/script/output/${CHAINID}/credible_squaring_avs_deployment_output.json
-STRATEGY_ADDRESS=0x7a2088a1bFc9d81c55368AE168C2C02570cB814F
+# check in contracts/script/output/${CHAINID}/flux_layer_avs_deployment_output.json
+STRATEGY_ADDRESS=0x7FA5BFBaFf26F29399b684bb177763d59F9d3452
 DEPLOYMENT_FILES_DIR=contracts/script/output/${CHAINID}
 
 -----------------------------: ## 
@@ -43,7 +44,7 @@ docker-compose-up: ## runs docker compose pull first and then up
 
 __CLI__: ## 
 
-cli-setup-operator: send-fund cli-register-operator-with-eigenlayer cli-deposit-into-mocktoken-strategy cli-register-operator-with-avs ## registers operator with eigenlayer and avs
+cli-setup-operator: cli-register-operator-with-eigenlayer cli-deposit-into-mocktoken-strategy cli-register-operator-with-avs ## registers operator with eigenlayer and avs
 
 cli-register-operator-with-eigenlayer: ## registers operator with delegationManager
 	go run cli/main.go --config config-files/operator.anvil.yaml register-operator-with-eigenlayer
@@ -69,7 +70,7 @@ send-fund: ## sends fund to the operator saved in tests/keys/test.ecdsa.key.json
 ____OFFCHAIN_SOFTWARE___: ## 
 start-aggregator: ## 
 	go run aggregator/cmd/main.go --config config-files/aggregator.yaml \
-		--credible-squaring-deployment ${DEPLOYMENT_FILES_DIR}/credible_squaring_avs_deployment_output.json \
+		--flux-layer-deployment ${DEPLOYMENT_FILES_DIR}/flux_layer_avs_deployment_output.json \
 		--ecdsa-private-key ${AGGREGATOR_ECDSA_PRIV_KEY} \
 		2>&1 | zap-pretty
 
@@ -79,7 +80,7 @@ start-operator: ##
 
 start-challenger: ## 
 	go run challenger/cmd/main.go --config config-files/challenger.yaml \
-		--credible-squaring-deployment ${DEPLOYMENT_FILES_DIR}/credible_squaring_avs_deployment_output.json \
+		--credible-squaring-deployment ${DEPLOYMENT_FILES_DIR}/flux_layer_avs_deployment_output.json \
 		--ecdsa-private-key ${CHALLENGER_ECDSA_PRIV_KEY} \
 		2>&1 | zap-pretty
 

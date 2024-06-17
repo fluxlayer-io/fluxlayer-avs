@@ -18,9 +18,6 @@ import {IndexRegistry} from "@eigenlayer-middleware/src/IndexRegistry.sol";
 import {StakeRegistry} from "@eigenlayer-middleware/src/StakeRegistry.sol";
 import "@eigenlayer-middleware/src/OperatorStateRetriever.sol";
 
-import {IncredibleSquaringServiceManager, IServiceManager} from "../src/IncredibleSquaringServiceManager.sol";
-import {IncredibleSquaringTaskManager} from "../src/IncredibleSquaringTaskManager.sol";
-import {IIncredibleSquaringTaskManager} from "../src/IIncredibleSquaringTaskManager.sol";
 import "../src/ERC20Mock.sol";
 
 import {Utils} from "./utils/Utils.sol";
@@ -29,19 +26,20 @@ import "forge-std/Test.sol";
 import "forge-std/Script.sol";
 import "forge-std/StdJson.sol";
 import "forge-std/console.sol";
+import "../src/Settlement.sol";
+import "../src/FluxLayerServiceManager.sol";
 
 // # To deploy and verify our contract
-// forge script script/CredibleSquaringDeployer.s.sol:CredibleSquaringDeployer --rpc-url $RPC_URL  --private-key $PRIVATE_KEY --broadcast -vvvv
-contract IncredibleSquaringDeployer is Script, Utils {
+// anvil --block-time 5 -f https://ethereum-holesky-rpc.publicnode.com
+// forge script script/FluxLayerDeployer.s.sol:FluxLayerDeployer --rpc-url http://127.0.0.1:8545  --private-key 0x3b5d8eba232abf04faa6b3cdd0f72148ccd8b52ab4881aaf21a8bf378260e45a --legacy --broadcast
+contract FluxLayerDeployer is Script, Utils {
     // DEPLOYMENT CONSTANTS
     uint256 public constant QUORUM_THRESHOLD_PERCENTAGE = 100;
     uint32 public constant TASK_RESPONSE_WINDOW_BLOCK = 30;
     uint32 public constant TASK_DURATION_BLOCKS = 0;
     // TODO: right now hardcoding these (this address is anvil's default address 9)
     address public constant AGGREGATOR_ADDR =
-        0xa0Ee7A142d267C1f36714E4a8F75612F20a79720;
-    address public constant TASK_GENERATOR_ADDR =
-        0xa0Ee7A142d267C1f36714E4a8F75612F20a79720;
+    0xa0Ee7A142d267C1f36714E4a8F75612F20a79720;
 
     // ERC20 and Strategy: we need to deploy this erc20, create a strategy for it, and whitelist this strategy in the strategymanager
 
@@ -49,8 +47,8 @@ contract IncredibleSquaringDeployer is Script, Utils {
     StrategyBaseTVLLimits public erc20MockStrategy;
 
     // Credible Squaring contracts
-    ProxyAdmin public incredibleSquaringProxyAdmin;
-    PauserRegistry public incredibleSquaringPauserReg;
+    ProxyAdmin public fluxLayerProxyAdmin;
+    PauserRegistry public fluxLayerPauserReg;
 
     regcoord.RegistryCoordinator public registryCoordinator;
     regcoord.IRegistryCoordinator public registryCoordinatorImplementation;
@@ -66,12 +64,11 @@ contract IncredibleSquaringDeployer is Script, Utils {
 
     OperatorStateRetriever public operatorStateRetriever;
 
-    IncredibleSquaringServiceManager public incredibleSquaringServiceManager;
-    IServiceManager public incredibleSquaringServiceManagerImplementation;
+    FluxLayerServiceManager public fluxLayerServiceManager;
+    FluxLayerServiceManager public fluxLayerServiceManagerImplementation;
 
-    IncredibleSquaringTaskManager public incredibleSquaringTaskManager;
-    IIncredibleSquaringTaskManager
-        public incredibleSquaringTaskManagerImplementation;
+    Settlement public settlement;
+    Settlement public settlementImplementation;
 
     function run() external {
         // Eigenlayer contracts
@@ -109,11 +106,11 @@ contract IncredibleSquaringDeployer is Script, Utils {
             )
         );
         StrategyBaseTVLLimits baseStrategyImplementation = StrategyBaseTVLLimits(
-                stdJson.readAddress(
-                    eigenlayerDeployedContracts,
-                    ".addresses.baseStrategyImplementation"
-                )
-            );
+            stdJson.readAddress(
+                eigenlayerDeployedContracts,
+                ".addresses.baseStrategyImplementation"
+            )
+        );
 
         address credibleSquaringCommunityMultisig = msg.sender;
         address credibleSquaringPauser = msg.sender;
@@ -173,8 +170,8 @@ contract IncredibleSquaringDeployer is Script, Utils {
         IDelegationManager delegationManager,
         IAVSDirectory avsDirectory,
         IStrategy strat,
-        address incredibleSquaringCommunityMultisig,
-        address credibleSquaringPauser
+        address fluxLayerCommunityMultisig,
+        address fluxLayerPauser
     ) internal {
         // Adding this as a temporary fix to make the rest of the script work with a single strategy
         // since it was originally written to work with an array of strategies
@@ -182,16 +179,16 @@ contract IncredibleSquaringDeployer is Script, Utils {
         uint numStrategies = deployedStrategyArray.length;
 
         // deploy proxy admin for ability to upgrade proxy contracts
-        incredibleSquaringProxyAdmin = new ProxyAdmin();
+        fluxLayerProxyAdmin = new ProxyAdmin();
 
         // deploy pauser registry
         {
             address[] memory pausers = new address[](2);
-            pausers[0] = credibleSquaringPauser;
-            pausers[1] = incredibleSquaringCommunityMultisig;
-            incredibleSquaringPauserReg = new PauserRegistry(
+            pausers[0] = fluxLayerPauser;
+            pausers[1] = fluxLayerCommunityMultisig;
+            fluxLayerPauserReg = new PauserRegistry(
                 pausers,
-                incredibleSquaringCommunityMultisig
+                fluxLayerCommunityMultisig
             );
         }
 
@@ -203,20 +200,20 @@ contract IncredibleSquaringDeployer is Script, Utils {
          * First, deploy upgradeable proxy contracts that **will point** to the implementations. Since the implementation contracts are
          * not yet deployed, we give these proxies an empty contract as the initial implementation, to act as if they have no code.
          */
-        incredibleSquaringServiceManager = IncredibleSquaringServiceManager(
+        fluxLayerServiceManager = FluxLayerServiceManager(
             address(
                 new TransparentUpgradeableProxy(
                     address(emptyContract),
-                    address(incredibleSquaringProxyAdmin),
+                    address(fluxLayerProxyAdmin),
                     ""
                 )
             )
         );
-        incredibleSquaringTaskManager = IncredibleSquaringTaskManager(
+        settlement = Settlement(
             address(
                 new TransparentUpgradeableProxy(
                     address(emptyContract),
-                    address(incredibleSquaringProxyAdmin),
+                    address(fluxLayerProxyAdmin),
                     ""
                 )
             )
@@ -225,7 +222,7 @@ contract IncredibleSquaringDeployer is Script, Utils {
             address(
                 new TransparentUpgradeableProxy(
                     address(emptyContract),
-                    address(incredibleSquaringProxyAdmin),
+                    address(fluxLayerProxyAdmin),
                     ""
                 )
             )
@@ -234,7 +231,7 @@ contract IncredibleSquaringDeployer is Script, Utils {
             address(
                 new TransparentUpgradeableProxy(
                     address(emptyContract),
-                    address(incredibleSquaringProxyAdmin),
+                    address(fluxLayerProxyAdmin),
                     ""
                 )
             )
@@ -243,7 +240,7 @@ contract IncredibleSquaringDeployer is Script, Utils {
             address(
                 new TransparentUpgradeableProxy(
                     address(emptyContract),
-                    address(incredibleSquaringProxyAdmin),
+                    address(fluxLayerProxyAdmin),
                     ""
                 )
             )
@@ -252,7 +249,7 @@ contract IncredibleSquaringDeployer is Script, Utils {
             address(
                 new TransparentUpgradeableProxy(
                     address(emptyContract),
-                    address(incredibleSquaringProxyAdmin),
+                    address(fluxLayerProxyAdmin),
                     ""
                 )
             )
@@ -267,7 +264,7 @@ contract IncredibleSquaringDeployer is Script, Utils {
                 delegationManager
             );
 
-            incredibleSquaringProxyAdmin.upgrade(
+            fluxLayerProxyAdmin.upgrade(
                 TransparentUpgradeableProxy(payable(address(stakeRegistry))),
                 address(stakeRegistryImplementation)
             );
@@ -276,7 +273,7 @@ contract IncredibleSquaringDeployer is Script, Utils {
                 registryCoordinator
             );
 
-            incredibleSquaringProxyAdmin.upgrade(
+            fluxLayerProxyAdmin.upgrade(
                 TransparentUpgradeableProxy(payable(address(blsApkRegistry))),
                 address(blsApkRegistryImplementation)
             );
@@ -285,14 +282,14 @@ contract IncredibleSquaringDeployer is Script, Utils {
                 registryCoordinator
             );
 
-            incredibleSquaringProxyAdmin.upgrade(
+            fluxLayerProxyAdmin.upgrade(
                 TransparentUpgradeableProxy(payable(address(indexRegistry))),
                 address(indexRegistryImplementation)
             );
         }
 
         registryCoordinatorImplementation = new regcoord.RegistryCoordinator(
-            incredibleSquaringServiceManager,
+            fluxLayerServiceManager,
             regcoord.IStakeRegistry(address(stakeRegistry)),
             regcoord.IBLSApkRegistry(address(blsApkRegistry)),
             regcoord.IIndexRegistry(address(indexRegistry))
@@ -303,25 +300,25 @@ contract IncredibleSquaringDeployer is Script, Utils {
             // for each quorum to setup, we need to define
             // QuorumOperatorSetParam, minimumStakeForQuorum, and strategyParams
             regcoord.IRegistryCoordinator.OperatorSetParam[]
-                memory quorumsOperatorSetParams = new regcoord.IRegistryCoordinator.OperatorSetParam[](
-                    numQuorums
-                );
+            memory quorumsOperatorSetParams = new regcoord.IRegistryCoordinator.OperatorSetParam[](
+                numQuorums
+            );
             for (uint i = 0; i < numQuorums; i++) {
                 // hard code these for now
                 quorumsOperatorSetParams[i] = regcoord
                     .IRegistryCoordinator
                     .OperatorSetParam({
-                        maxOperatorCount: 10000,
-                        kickBIPsOfOperatorStake: 15000,
-                        kickBIPsOfTotalStake: 100
-                    });
+                    maxOperatorCount: 10000,
+                    kickBIPsOfOperatorStake: 15000,
+                    kickBIPsOfTotalStake: 100
+                });
             }
             // set to 0 for every quorum
             uint96[] memory quorumsMinimumStake = new uint96[](numQuorums);
             IStakeRegistry.StrategyParams[][]
-                memory quorumsStrategyParams = new IStakeRegistry.StrategyParams[][](
-                    numQuorums
-                );
+            memory quorumsStrategyParams = new IStakeRegistry.StrategyParams[][](
+                numQuorums
+            );
             for (uint i = 0; i < numQuorums; i++) {
                 quorumsStrategyParams[i] = new IStakeRegistry.StrategyParams[](
                     numStrategies
@@ -329,16 +326,16 @@ contract IncredibleSquaringDeployer is Script, Utils {
                 for (uint j = 0; j < numStrategies; j++) {
                     quorumsStrategyParams[i][j] = IStakeRegistry
                         .StrategyParams({
-                            strategy: deployedStrategyArray[j],
-                            // setting this to 1 ether since the divisor is also 1 ether
-                            // therefore this allows an operator to register with even just 1 token
-                            // see https://github.com/Layr-Labs/eigenlayer-middleware/blob/m2-mainnet/src/StakeRegistry.sol#L484
-                            //    weight += uint96(sharesAmount * strategyAndMultiplier.multiplier / WEIGHTING_DIVISOR);
-                            multiplier: 1 ether
-                        });
+                        strategy: deployedStrategyArray[j],
+                    // setting this to 1 ether since the divisor is also 1 ether
+                    // therefore this allows an operator to register with even just 1 token
+                    // see https://github.com/Layr-Labs/eigenlayer-middleware/blob/m2-mainnet/src/StakeRegistry.sol#L484
+                    //    weight += uint96(sharesAmount * strategyAndMultiplier.multiplier / WEIGHTING_DIVISOR);
+                        multiplier: 1 ether
+                    });
                 }
             }
-            incredibleSquaringProxyAdmin.upgradeAndCall(
+            fluxLayerProxyAdmin.upgradeAndCall(
                 TransparentUpgradeableProxy(
                     payable(address(registryCoordinator))
                 ),
@@ -346,10 +343,10 @@ contract IncredibleSquaringDeployer is Script, Utils {
                 abi.encodeWithSelector(
                     regcoord.RegistryCoordinator.initialize.selector,
                     // we set churnApprover and ejector to communityMultisig because we don't need them
-                    incredibleSquaringCommunityMultisig,
-                    incredibleSquaringCommunityMultisig,
-                    incredibleSquaringCommunityMultisig,
-                    incredibleSquaringPauserReg,
+                    fluxLayerCommunityMultisig,
+                    fluxLayerCommunityMultisig,
+                    fluxLayerCommunityMultisig,
+                    fluxLayerPauserReg,
                     0, // 0 initialPausedStatus means everything unpaused
                     quorumsOperatorSetParams,
                     quorumsMinimumStake,
@@ -358,37 +355,32 @@ contract IncredibleSquaringDeployer is Script, Utils {
             );
         }
 
-        incredibleSquaringServiceManagerImplementation = new IncredibleSquaringServiceManager(
+        fluxLayerServiceManagerImplementation = new FluxLayerServiceManager(
             avsDirectory,
             registryCoordinator,
             stakeRegistry,
-            incredibleSquaringTaskManager
+            settlement
         );
         // Third, upgrade the proxy contracts to use the correct implementation contracts and initialize them.
-        incredibleSquaringProxyAdmin.upgrade(
+        fluxLayerProxyAdmin.upgrade(
             TransparentUpgradeableProxy(
-                payable(address(incredibleSquaringServiceManager))
+                payable(address(fluxLayerServiceManager))
             ),
-            address(incredibleSquaringServiceManagerImplementation)
+            address(fluxLayerServiceManagerImplementation)
         );
 
-        incredibleSquaringTaskManagerImplementation = new IncredibleSquaringTaskManager(
-            registryCoordinator,
-            TASK_RESPONSE_WINDOW_BLOCK
-        );
-
+        settlementImplementation = new Settlement(registryCoordinator);
         // Third, upgrade the proxy contracts to use the correct implementation contracts and initialize them.
-        incredibleSquaringProxyAdmin.upgradeAndCall(
+        fluxLayerProxyAdmin.upgradeAndCall(
             TransparentUpgradeableProxy(
-                payable(address(incredibleSquaringTaskManager))
+                payable(address(settlement))
             ),
-            address(incredibleSquaringTaskManagerImplementation),
+            address(settlementImplementation),
             abi.encodeWithSelector(
-                incredibleSquaringTaskManager.initialize.selector,
-                incredibleSquaringPauserReg,
-                incredibleSquaringCommunityMultisig,
-                AGGREGATOR_ADDR,
-                TASK_GENERATOR_ADDR
+                settlement.initialize.selector,
+                fluxLayerPauserReg,
+                fluxLayerCommunityMultisig,
+                AGGREGATOR_ADDR
             )
         );
 
@@ -408,23 +400,13 @@ contract IncredibleSquaringDeployer is Script, Utils {
         );
         vm.serializeAddress(
             deployed_addresses,
-            "credibleSquaringServiceManager",
-            address(incredibleSquaringServiceManager)
+            "fluxLayerServiceManager",
+            address(fluxLayerServiceManager)
         );
         vm.serializeAddress(
             deployed_addresses,
-            "credibleSquaringServiceManagerImplementation",
-            address(incredibleSquaringServiceManagerImplementation)
-        );
-        vm.serializeAddress(
-            deployed_addresses,
-            "credibleSquaringTaskManager",
-            address(incredibleSquaringTaskManager)
-        );
-        vm.serializeAddress(
-            deployed_addresses,
-            "credibleSquaringTaskManagerImplementation",
-            address(incredibleSquaringTaskManagerImplementation)
+            "fluxLayerServiceManagerImplementation",
+            address(fluxLayerServiceManagerImplementation)
         );
         vm.serializeAddress(
             deployed_addresses,
@@ -435,6 +417,17 @@ contract IncredibleSquaringDeployer is Script, Utils {
             deployed_addresses,
             "registryCoordinatorImplementation",
             address(registryCoordinatorImplementation)
+        );
+        // settlement
+        vm.serializeAddress(
+            deployed_addresses,
+            "settlement",
+            address(settlement)
+        );
+        vm.serializeAddress(
+            deployed_addresses,
+            "settlementImplementation",
+            address(settlementImplementation)
         );
         string memory deployed_addresses_output = vm.serializeAddress(
             deployed_addresses,
@@ -449,6 +442,6 @@ contract IncredibleSquaringDeployer is Script, Utils {
             deployed_addresses_output
         );
 
-        writeOutput(finalJson, "credible_squaring_avs_deployment_output");
+        writeOutput(finalJson, "flux_layer_avs_deployment_output");
     }
 }

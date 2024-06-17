@@ -3,6 +3,8 @@ package challenger
 import (
 	"bytes"
 	"context"
+	"errors"
+	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 	"math/big"
 
 	ethclient "github.com/Layr-Labs/eigensdk-go/chainio/clients/eth"
@@ -12,20 +14,18 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/Layr-Labs/incredible-squaring-avs/challenger/types"
-	cstaskmanager "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/IncredibleSquaringTaskManager"
 	"github.com/Layr-Labs/incredible-squaring-avs/core/chainio"
 )
 
 type Challenger struct {
-	logger             logging.Logger
-	ethClient          ethclient.Client
-	avsReader          chainio.AvsReaderer
-	avsWriter          chainio.AvsWriterer
-	avsSubscriber      chainio.AvsSubscriberer
-	tasks              map[uint32]cstaskmanager.IIncredibleSquaringTaskManagerTask
-	taskResponses      map[uint32]types.TaskResponseData
-	taskResponseChan   chan *cstaskmanager.ContractIncredibleSquaringTaskManagerTaskResponded
-	newTaskCreatedChan chan *cstaskmanager.ContractIncredibleSquaringTaskManagerNewTaskCreated
+	logger           logging.Logger
+	ethClient        ethclient.Client
+	avsReader        chainio.AvsReaderer
+	avsWriter        chainio.AvsWriterer
+	avsSubscriber    chainio.AvsSubscriberer
+	tasks            map[uint32]settlement.SettlementOrder
+	taskResponses    map[uint32]types.TaskResponseData
+	taskResponseChan chan *settlement.ContractSettlementOrderRespondedEvent
 }
 
 func NewChallenger(c *config.Config) (*Challenger, error) {
@@ -47,15 +47,14 @@ func NewChallenger(c *config.Config) (*Challenger, error) {
 	}
 
 	challenger := &Challenger{
-		ethClient:          c.EthHttpClient,
-		logger:             c.Logger,
-		avsWriter:          avsWriter,
-		avsReader:          avsReader,
-		avsSubscriber:      avsSubscriber,
-		tasks:              make(map[uint32]cstaskmanager.IIncredibleSquaringTaskManagerTask),
-		taskResponses:      make(map[uint32]types.TaskResponseData),
-		taskResponseChan:   make(chan *cstaskmanager.ContractIncredibleSquaringTaskManagerTaskResponded),
-		newTaskCreatedChan: make(chan *cstaskmanager.ContractIncredibleSquaringTaskManagerNewTaskCreated),
+		ethClient:        c.EthHttpClient,
+		logger:           c.Logger,
+		avsWriter:        avsWriter,
+		avsReader:        avsReader,
+		avsSubscriber:    avsSubscriber,
+		tasks:            make(map[uint32]settlement.SettlementOrder),
+		taskResponses:    make(map[uint32]types.TaskResponseData),
+		taskResponseChan: make(chan *settlement.ContractSettlementOrderRespondedEvent),
 	}
 
 	return challenger, nil
@@ -64,37 +63,16 @@ func NewChallenger(c *config.Config) (*Challenger, error) {
 func (c *Challenger) Start(ctx context.Context) error {
 	c.logger.Infof("Starting Challenger.")
 
-	newTaskSub := c.avsSubscriber.SubscribeToNewTasks(c.newTaskCreatedChan)
-	c.logger.Infof("Subscribed to new tasks")
-
 	taskResponseSub := c.avsSubscriber.SubscribeToTaskResponses(c.taskResponseChan)
 	c.logger.Infof("Subscribed to task responses")
 
 	for {
 		select {
-		case err := <-newTaskSub.Err():
-			// TODO(samlaf): Copied from operator. There was a comment about this on when should exactly do these errors occur? do we need to restart the websocket
-			c.logger.Error("Error in websocket subscription for new Task", "err", err)
-			newTaskSub.Unsubscribe()
-			newTaskSub = c.avsSubscriber.SubscribeToNewTasks(c.newTaskCreatedChan)
-
 		case err := <-taskResponseSub.Err():
 			// TODO(samlaf): Copied from operator. There was a comment about this on when should exactly do these errors occur? do we need to restart the websocket
 			c.logger.Error("Error in websocket subscription for task response", "err", err)
 			taskResponseSub.Unsubscribe()
 			taskResponseSub = c.avsSubscriber.SubscribeToTaskResponses(c.taskResponseChan)
-
-		case newTaskCreatedLog := <-c.newTaskCreatedChan:
-			c.logger.Info("New task created log received", "newTaskCreatedLog", newTaskCreatedLog)
-			taskIndex := c.processNewTaskCreatedLog(newTaskCreatedLog)
-
-			if _, found := c.taskResponses[taskIndex]; found {
-				err := c.callChallengeModule(taskIndex)
-				if err != nil {
-					c.logger.Error("Error calling challenge module", "err", err)
-				}
-				continue
-			}
 
 		case taskResponseLog := <-c.taskResponseChan:
 			c.logger.Info("Task response log received", "taskResponseLog", taskResponseLog)
@@ -112,12 +90,7 @@ func (c *Challenger) Start(ctx context.Context) error {
 
 }
 
-func (c *Challenger) processNewTaskCreatedLog(newTaskCreatedLog *cstaskmanager.ContractIncredibleSquaringTaskManagerNewTaskCreated) uint32 {
-	c.tasks[newTaskCreatedLog.TaskIndex] = newTaskCreatedLog.Task
-	return newTaskCreatedLog.TaskIndex
-}
-
-func (c *Challenger) processTaskResponseLog(taskResponseLog *cstaskmanager.ContractIncredibleSquaringTaskManagerTaskResponded) uint32 {
+func (c *Challenger) processTaskResponseLog(taskResponseLog *settlement.ContractSettlementOrderRespondedEvent) uint32 {
 	taskResponseRawLog, err := c.avsSubscriber.ParseTaskResponded(taskResponseLog.Raw)
 	if err != nil {
 		c.logger.Error("Error parsing task response. skipping task (this is probably bad and should be investigated)", "err", err)
@@ -126,33 +99,20 @@ func (c *Challenger) processTaskResponseLog(taskResponseLog *cstaskmanager.Contr
 	// get the inputs necessary for raising a challenge
 	nonSigningOperatorPubKeys := c.getNonSigningOperatorPubKeys(taskResponseLog)
 	taskResponseData := types.TaskResponseData{
-		TaskResponse:              taskResponseLog.TaskResponse,
-		TaskResponseMetadata:      taskResponseLog.TaskResponseMetadata,
+		OrderResponse:             taskResponseLog.OrderResponse,
+		OrderResponseMetadata:     taskResponseLog.OrderResponseMetadata,
 		NonSigningOperatorPubKeys: nonSigningOperatorPubKeys,
 	}
 
-	c.taskResponses[taskResponseRawLog.TaskResponse.ReferenceTaskIndex] = taskResponseData
-	return taskResponseRawLog.TaskResponse.ReferenceTaskIndex
+	c.taskResponses[taskResponseRawLog.OrderResponse.ReferenceOrderIndex] = taskResponseData
+	return taskResponseRawLog.OrderResponse.ReferenceOrderIndex
 }
 
 func (c *Challenger) callChallengeModule(taskIndex uint32) error {
-	numberToBeSquared := c.tasks[taskIndex].NumberToBeSquared
-	answerInResponse := c.taskResponses[taskIndex].TaskResponse.NumberSquared
-	trueAnswer := numberToBeSquared.Exp(numberToBeSquared, big.NewInt(2), nil)
-
-	// checking if the answer in the response submitted by aggregator is correct
-	if trueAnswer.Cmp(answerInResponse) != 0 {
-		c.logger.Infof("The number squared is not correct")
-
-		// raise challenge
-		c.raiseChallenge(taskIndex)
-
-		return nil
-	}
-	return types.NoErrorInTaskResponse
+	return errors.New("not implemented")
 }
 
-func (c *Challenger) getNonSigningOperatorPubKeys(vLog *cstaskmanager.ContractIncredibleSquaringTaskManagerTaskResponded) []cstaskmanager.BN254G1Point {
+func (c *Challenger) getNonSigningOperatorPubKeys(vLog *settlement.ContractSettlementOrderRespondedEvent) []settlement.BN254G1Point {
 	c.logger.Info("vLog.Raw is", "vLog.Raw", vLog.Raw)
 
 	// get the nonSignerStakesAndSignature
@@ -208,9 +168,9 @@ func (c *Challenger) getNonSigningOperatorPubKeys(vLog *cstaskmanager.ContractIn
 	})
 
 	// get pubkeys of non-signing operators and submit them to the contract
-	nonSigningOperatorPubKeys := make([]cstaskmanager.BN254G1Point, len(nonSignerStakesAndSignatureInput.NonSignerPubkeys))
+	nonSigningOperatorPubKeys := make([]settlement.BN254G1Point, len(nonSignerStakesAndSignatureInput.NonSignerPubkeys))
 	for i, pubkey := range nonSignerStakesAndSignatureInput.NonSignerPubkeys {
-		nonSigningOperatorPubKeys[i] = cstaskmanager.BN254G1Point{
+		nonSigningOperatorPubKeys[i] = settlement.BN254G1Point{
 			X: pubkey.X,
 			Y: pubkey.Y,
 		}
@@ -222,15 +182,15 @@ func (c *Challenger) getNonSigningOperatorPubKeys(vLog *cstaskmanager.ContractIn
 func (c *Challenger) raiseChallenge(taskIndex uint32) error {
 	c.logger.Info("Challenger raising challenge.", "taskIndex", taskIndex)
 	c.logger.Info("Task", "Task", c.tasks[taskIndex])
-	c.logger.Info("TaskResponse", "TaskResponse", c.taskResponses[taskIndex].TaskResponse)
-	c.logger.Info("TaskResponseMetadata", "TaskResponseMetadata", c.taskResponses[taskIndex].TaskResponseMetadata)
+	c.logger.Info("OrderResponse", "TaskResponse", c.taskResponses[taskIndex].OrderResponse)
+	c.logger.Info("OrderResponseMetadata", "TaskResponseMetadata", c.taskResponses[taskIndex].OrderResponseMetadata)
 	c.logger.Info("NonSigningOperatorPubKeys", "NonSigningOperatorPubKeys", c.taskResponses[taskIndex].NonSigningOperatorPubKeys)
 
 	receipt, err := c.avsWriter.RaiseChallenge(
 		context.Background(),
 		c.tasks[taskIndex],
-		c.taskResponses[taskIndex].TaskResponse,
-		c.taskResponses[taskIndex].TaskResponseMetadata,
+		c.taskResponses[taskIndex].OrderResponse,
+		c.taskResponses[taskIndex].OrderResponseMetadata,
 		c.taskResponses[taskIndex].NonSigningOperatorPubKeys,
 	)
 	if err != nil {

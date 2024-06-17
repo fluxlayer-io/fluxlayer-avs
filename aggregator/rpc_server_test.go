@@ -2,7 +2,7 @@ package aggregator
 
 import (
 	"context"
-	"math/big"
+	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,7 +12,6 @@ import (
 	"github.com/Layr-Labs/eigensdk-go/crypto/bls"
 	sdktypes "github.com/Layr-Labs/eigensdk-go/types"
 	"github.com/Layr-Labs/incredible-squaring-avs/aggregator/types"
-	cstaskmanager "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/IncredibleSquaringTaskManager"
 	"github.com/Layr-Labs/incredible-squaring-avs/core"
 )
 
@@ -22,7 +21,6 @@ func TestProcessSignedTaskResponse(t *testing.T) {
 
 	var TASK_INDEX = uint32(0)
 	var BLOCK_NUMBER = uint32(100)
-	var NUMBER_TO_SQUARE = uint32(3)
 
 	MOCK_OPERATOR_BLS_PRIVATE_KEY, err := bls.NewPrivateKey(MOCK_OPERATOR_BLS_PRIVATE_KEY_STRING)
 	assert.Nil(t, err)
@@ -43,9 +41,9 @@ func TestProcessSignedTaskResponse(t *testing.T) {
 	assert.Nil(t, err)
 
 	signedTaskResponse, err := createMockSignedTaskResponse(MockTask{
-		TaskNum:        TASK_INDEX,
-		BlockNumber:    BLOCK_NUMBER,
-		NumberToSquare: NUMBER_TO_SQUARE,
+		TaskNum:     TASK_INDEX,
+		BlockNumber: BLOCK_NUMBER,
+		TxSuccess:   true,
 	}, *MOCK_OPERATOR_KEYPAIR)
 	assert.Nil(t, err)
 	signedTaskResponseDigest, err := core.GetTaskResponseDigest(&signedTaskResponse.TaskResponse)
@@ -56,16 +54,15 @@ func TestProcessSignedTaskResponse(t *testing.T) {
 	// see https://hynek.me/articles/what-to-mock-in-5-mins/
 	mockBlsAggServ.EXPECT().ProcessNewSignature(context.Background(), TASK_INDEX, signedTaskResponseDigest,
 		&signedTaskResponse.BlsSignature, signedTaskResponse.OperatorId)
-	err = aggregator.ProcessSignedTaskResponse(signedTaskResponse, nil)
+	err = aggregator.ProcessSignedTaskResponse(&TaskResponseWrapper{SignedTaskResponse: signedTaskResponse, Fulfillment: &settlement.ContractSettlementFulfillEvent{}}, nil)
 	assert.Nil(t, err)
 }
 
 // mocks an operator signing on a task response
 func createMockSignedTaskResponse(mockTask MockTask, keypair bls.KeyPair) (*SignedTaskResponse, error) {
-	numberToSquareBigInt := big.NewInt(int64(mockTask.NumberToSquare))
-	taskResponse := &cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse{
-		ReferenceTaskIndex: mockTask.TaskNum,
-		NumberSquared:      numberToSquareBigInt.Mul(numberToSquareBigInt, numberToSquareBigInt),
+	taskResponse := &settlement.SettlementOrderResponse{
+		ReferenceOrderIndex: mockTask.TaskNum,
+		TxSuccess:           true,
 	}
 	taskResponseHash, err := core.GetTaskResponseDigest(taskResponse)
 	if err != nil {
