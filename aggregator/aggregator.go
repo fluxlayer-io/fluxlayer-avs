@@ -3,7 +3,6 @@ package aggregator
 import (
 	"context"
 	"github.com/Layr-Labs/eigensdk-go/types"
-	aggtypes "github.com/Layr-Labs/incredible-squaring-avs/aggregator/types"
 	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 	"github.com/Layr-Labs/incredible-squaring-avs/core"
 	"sync"
@@ -67,14 +66,12 @@ type Aggregator struct {
 	logger           logging.Logger
 	serverIpPortAddr string
 	avsWriter        chainio.AvsWriterer
-	avsSubscriber    chainio.AvsSubscriber
 	// aggregation related fields
 	blsAggregationService blsagg.BlsAggregationService
 	tasks                 map[types.TaskIndex]settlement.SettlementOrder
 	tasksMu               sync.RWMutex
 	taskResponses         map[types.TaskIndex]map[sdktypes.TaskResponseDigest]settlement.SettlementOrderResponse
 	taskResponsesMu       sync.RWMutex
-	fulfillCreatedChan    chan *settlement.ContractSettlementFulfillEvent
 }
 
 // NewAggregator creates a new Aggregator with the provided config.
@@ -109,17 +106,14 @@ func NewAggregator(c *config.Config) (*Aggregator, error) {
 	operatorPubkeysService := oprsinfoserv.NewOperatorsInfoServiceInMemory(context.Background(), clients.AvsRegistryChainSubscriber, clients.AvsRegistryChainReader, c.Logger)
 	avsRegistryService := avsregistry.NewAvsRegistryServiceChainCaller(avsReader, operatorPubkeysService, c.Logger)
 	blsAggregationService := blsagg.NewBlsAggregatorService(avsRegistryService, c.Logger)
-	avsSubscriber, _ := chainio.BuildAvsSubscriber(c.SettlementAddr, c.EthWsClient, c.Logger)
 
 	return &Aggregator{
 		logger:                c.Logger,
 		serverIpPortAddr:      c.AggregatorServerIpPortAddr,
 		avsWriter:             avsWriter,
 		blsAggregationService: blsAggregationService,
-		avsSubscriber:         *avsSubscriber,
 		tasks:                 make(map[sdktypes.TaskIndex]settlement.SettlementOrder),
 		taskResponses:         make(map[types.TaskIndex]map[sdktypes.TaskResponseDigest]settlement.SettlementOrderResponse),
-		fulfillCreatedChan:    make(chan *settlement.ContractSettlementFulfillEvent),
 	}, nil
 }
 
@@ -127,8 +121,6 @@ func (agg *Aggregator) Start(ctx context.Context) error {
 	agg.logger.Infof("Starting aggregator.")
 	agg.logger.Infof("Starting aggregator rpc server.")
 	go agg.startServer(ctx)
-	sub := agg.avsSubscriber.SubscribeToFulfillment(agg.fulfillCreatedChan)
-	defer sub.Unsubscribe()
 
 	for {
 		select {
@@ -138,22 +130,6 @@ func (agg *Aggregator) Start(ctx context.Context) error {
 			// create new task, and fill it with dummy data
 			agg.logger.Info("Received response from blsAggregationService", "blsAggServiceResp", blsAggServiceResp)
 			agg.sendAggregatedResponseToContract(blsAggServiceResp)
-		case fulfillmentLog := <-agg.fulfillCreatedChan:
-			agg.logger.Info("Fulfillment log received", "fulfillmentLog", fulfillmentLog)
-			// create task
-			block := uint32(fulfillmentLog.Raw.BlockNumber)
-			agg.blsAggregationService.InitializeNewTask(fulfillmentLog.OrderNum, block, aggtypes.QUORUM_NUMBERS, types.QuorumThresholdPercentages{100}, time.Second*3600)
-			agg.tasksMu.Lock()
-			agg.tasks[fulfillmentLog.OrderNum] = settlement.SettlementOrder{
-				InputToken:                fulfillmentLog.InputToken,
-				OutputToken:               fulfillmentLog.OutputToken,
-				InputAmount:               fulfillmentLog.InputAmount,
-				OutputAmount:              fulfillmentLog.OutputAmount,
-				CreatedBlock:              block,
-				QuorumNumbers:             fulfillmentLog.QuorumNumbers,
-				QuorumThresholdPercentage: fulfillmentLog.QuorumThresholdPercentage,
-			}
-			agg.tasksMu.Unlock()
 		}
 	}
 }

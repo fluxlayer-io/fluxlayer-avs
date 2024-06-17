@@ -309,7 +309,7 @@ func (o *Operator) Start(ctx context.Context) error {
 				if err != nil {
 					return
 				}
-				go o.aggregatorRpcClient.SendSignedTaskResponseToAggregator(signedTaskResponse)
+				go o.aggregatorRpcClient.SendSignedTaskResponseToAggregator(fulfillmentLog, signedTaskResponse)
 			}()
 		}
 	}
