@@ -62,6 +62,7 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	agg.blsAggregationService.InitializeNewTask(fulfillment.OrderNum, uint32(fulfillment.Raw.BlockNumber), aggtypes.QUORUM_NUMBERS, types.QuorumThresholdPercentages{100}, time.Second*3600)
 	agg.tasksMu.Lock()
 	agg.tasks[fulfillment.OrderNum] = settlement.SettlementOrder{
+		OrderId:                   fulfillment.OrderId,
 		InputToken:                fulfillment.InputToken,
 		InputAmount:               fulfillment.InputAmount,
 		OutputToken:               fulfillment.OutputToken,
@@ -91,5 +92,10 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 		context.Background(), taskIndex, taskResponseDigest,
 		&signedTaskResponse.BlsSignature, signedTaskResponse.OperatorId,
 	)
+	if err == nil {
+		// update order status
+		agg.logger.Info("Update order fulfillment state")
+		agg.orderBook.FulfillOrder(fulfillment.OrderId, fulfillment.Taker.Hex(), fulfillment.Raw.TxHash.Hex(), taskIndex)
+	}
 	return err
 }

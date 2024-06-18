@@ -14,7 +14,7 @@ OperatorStateRetriever
 {
     using BN254 for BN254.G1Point;
     // fulfill event
-    event fulfillEvent(uint32 orderNum, address swapper, address inputToken, uint256 inputAmount, address outputToken, uint256 outputAmount,
+    event fulfillEvent(uint32 orderId, uint32 orderNum, address maker, address taker, address inputToken, uint256 inputAmount, address outputToken, uint256 outputAmount,
         uint32 quorumThresholdPercentage,
         bytes quorumNumbers
     );
@@ -30,6 +30,7 @@ OperatorStateRetriever
     // and responses need to pass the actual order,
     // which is hashed onchain and checked against this mapping
     mapping(uint32 => bytes32) public allOrderHashes;
+    mapping(uint32 => Order) public allOrderDetails;
     // mapping of order indices to hash of abi.encode(taskResponse, taskResponseMetadata)
     mapping(uint32 => bytes32) public allOrderResponses;
 
@@ -39,6 +40,7 @@ OperatorStateRetriever
 
     // STRUCTS
     struct Order {
+        uint32 orderId;
         address inputToken;
         uint256 inputAmount;
         address outputToken;
@@ -86,6 +88,8 @@ OperatorStateRetriever
     }
 
     function fulfill(
+        uint32 orderId,
+        address maker,
         address inputToken,
         uint256 inputAmount,
         address outputToken,
@@ -94,6 +98,7 @@ OperatorStateRetriever
         bytes calldata quorumNumbers
     ) public {
         Order memory order = Order(
+            orderId,
             inputToken,
             inputAmount,
             outputToken,
@@ -103,7 +108,8 @@ OperatorStateRetriever
             uint32(block.number)
         );
         allOrderHashes[latestOrderNum] = keccak256(abi.encode(order));
-        emit fulfillEvent(latestOrderNum, msg.sender, inputToken, inputAmount, outputToken, outputAmount, quorumThresholdPercentage, quorumNumbers);
+        allOrderDetails[latestOrderNum] = order;
+        emit fulfillEvent(orderId, latestOrderNum, maker, msg.sender, inputToken, inputAmount, outputToken, outputAmount, quorumThresholdPercentage, quorumNumbers);
         latestOrderNum = latestOrderNum + 1;
     }
 

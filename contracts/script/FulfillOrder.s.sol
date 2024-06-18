@@ -19,7 +19,9 @@ contract FulfillOrder is Script, Utils {
 
         vm.startBroadcast();
         bytes memory quorumNumbers = new bytes(1);
-        settlement.fulfill(address(1), 100, address(2), 200, 100, quorumNumbers);
+        uint32 orderId = 1;
+        address maker = address(3);
+        settlement.fulfill(orderId, maker, address(1), 100, address(2), 200, 100, quorumNumbers);
         vm.stopBroadcast();
     }
 }
