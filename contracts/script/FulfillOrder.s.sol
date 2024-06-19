@@ -1,9 +1,10 @@
 import "forge-std/Script.sol";
 import {Utils} from "./utils/Utils.sol";
 import "../src/Settlement.sol";
+import {SignUtils} from "./utils/SignUtils.sol";
 
 
-contract FulfillOrder is Script, Utils {
+contract FulfillOrder is SignUtils, Utils {
     Settlement settlement;
 
     function run() external {
@@ -18,13 +19,20 @@ contract FulfillOrder is Script, Utils {
         );
 
         vm.startBroadcast();
-        bytes memory quorumNumbers = new bytes(1);
         uint32 orderId = 1;
-        address maker = address(3);
+        // get current pk
+        uint256 pk = vm.envUint("PRIVATE_KEY");
+        address maker = vm.addr(pk);
         address taker = address(0);
-        uint256 expiry = 0;
-        bytes memory sig = new bytes(0);
-        settlement.fulfill(Settlement.Fulfill(orderId, maker, taker, address(1), 100, address(2), 200, 100, quorumNumbers, expiry, sig));
+        address inputToken = address(1);
+        uint256 inputAmount = 100;
+        address outputToken = address(2);
+        uint256 outputAmount = 200;
+        bytes memory quorumNumbers = new bytes(1);
+        uint256 expiry = block.timestamp + 1000;
+        bytes memory content = abi.encodePacked(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, expiry);
+        bytes memory sig = signContent(pk, content);
+        settlement.fulfill(Settlement.Fulfill(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, 100, quorumNumbers, expiry, sig));
         vm.stopBroadcast();
     }
 }

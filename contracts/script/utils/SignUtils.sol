@@ -1,6 +1,6 @@
-import "forge-std/Test.sol";
+import "forge-std/Script.sol";
 
-contract BaseTest is Test {
+contract SignUtils is Script {
     function signatureToBytes(bytes32 r, bytes32 s, uint8 v) internal pure returns (bytes memory) {
         bytes memory signature = new bytes(65);
         assembly {

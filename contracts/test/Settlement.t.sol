@@ -2,9 +2,9 @@ import "../src/Settlement.sol";
 import "../lib/forge-std/src/Test.sol";
 import "../lib/eigenlayer-middleware/test/utils/BLSMockAVSDeployer.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "./BaseTest.sol";
+import "../script/utils/SignUtils.sol";
 
-contract SettlementTest is BLSMockAVSDeployer, BaseTest {
+contract SettlementTest is BLSMockAVSDeployer, SignUtils {
     Settlement public settlement;
     address aggregator =
     address(uint160(uint256(keccak256(abi.encodePacked("aggregator")))));
