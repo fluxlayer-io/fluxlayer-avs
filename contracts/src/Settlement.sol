@@ -40,6 +40,10 @@ OperatorStateRetriever
     uint256 internal constant _THRESHOLD_DENOMINATOR = 100;
     address public aggregator;
 
+    error TakerMismatch();
+    error OrderExpired();
+    error InvalidSignature();
+
     // STRUCTS
     struct Order {
         uint32 orderId;
@@ -119,14 +123,14 @@ OperatorStateRetriever
         uint256 expiry = fulfill.expiry;
         bytes memory sig = fulfill.sig;
         // check taker address
-        require(taker == address(0) || msg.sender == taker, "taker is not msg sender");
-        require(expiry > block.timestamp, "order is expired");
+        if (taker != address(0) && msg.sender != taker) revert TakerMismatch();
+        if (expiry < block.timestamp) revert OrderExpired();
         // prepare data to verify signature
         bytes32 hash = keccak256(abi.encodePacked(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, expiry));
         // recover the signer's address
         address signer = hash.toEthSignedMessageHash().recover(sig);
         // check that the signer is the maker
-        require(signer == maker, "invalid signature");
+        if (signer != maker) revert InvalidSignature();
         Order memory order = Order(
             orderId,
             inputToken,

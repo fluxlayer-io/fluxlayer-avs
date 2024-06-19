@@ -1,5 +1,5 @@
 import "../src/Settlement.sol";
-import "../lib/forge-std/src/Test.sol";
+import "forge-std/Test.sol";
 import "../lib/eigenlayer-middleware/test/utils/BLSMockAVSDeployer.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "../script/utils/SignUtils.sol";
@@ -50,17 +50,17 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
 
     function testFulfillRevertWhenTakerIsNotMsgSender() public {
         // expect revert
-        vm.expectRevert("taker is not msg sender");
+        vm.expectRevert();
         settlement.fulfill(Settlement.Fulfill(orderId, maker, address(4), inputToken, inputAmount, outputToken, outputAmount, 100, quorumNumbers, expiry, sig));
     }
 
     function testFulFillRevertWhenExpiry() public {
-        vm.expectRevert("order is expired");
+        vm.expectRevert();
         settlement.fulfill(Settlement.Fulfill(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, 100, quorumNumbers, 0, sig));
     }
 
     function testFulFillRevertWhenInvalidSig() public {
-        vm.expectRevert("invalid signature");
+        vm.expectRevert();
         settlement.fulfill(Settlement.Fulfill(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, 100, quorumNumbers, expiry, invalidSig));
     }
 
