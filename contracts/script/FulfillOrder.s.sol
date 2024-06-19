@@ -21,7 +21,10 @@ contract FulfillOrder is Script, Utils {
         bytes memory quorumNumbers = new bytes(1);
         uint32 orderId = 1;
         address maker = address(3);
-        settlement.fulfill(orderId, maker, address(1), 100, address(2), 200, 100, quorumNumbers);
+        address taker = address(0);
+        uint256 expiry = 0;
+        bytes memory sig = new bytes(0);
+        settlement.fulfill(Settlement.Fulfill(orderId, maker, taker, address(1), 100, address(2), 200, 100, quorumNumbers, expiry, sig));
         vm.stopBroadcast();
     }
 }

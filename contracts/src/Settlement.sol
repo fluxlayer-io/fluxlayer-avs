@@ -4,6 +4,7 @@ import "@eigenlayer/contracts/permissions/Pausable.sol";
 import "../lib/eigenlayer-middleware/src/interfaces/IRegistryCoordinator.sol";
 import {BLSSignatureChecker, IRegistryCoordinator} from "@eigenlayer-middleware/src/BLSSignatureChecker.sol";
 import {OperatorStateRetriever} from "@eigenlayer-middleware/src/OperatorStateRetriever.sol";
+import "@openzeppelin-upgrades/contracts/utils/cryptography/ECDSAUpgradeable.sol";
 
 contract Settlement is
 Initializable,
@@ -13,6 +14,7 @@ BLSSignatureChecker,
 OperatorStateRetriever
 {
     using BN254 for BN254.G1Point;
+    using ECDSAUpgradeable for bytes32;
     // fulfill event
     event fulfillEvent(uint32 orderId, uint32 orderNum, address maker, address taker, address inputToken, uint256 inputAmount, address outputToken, uint256 outputAmount,
         uint32 quorumThresholdPercentage,
@@ -66,6 +68,20 @@ OperatorStateRetriever
         bytes32 hashOfNonSigners;
     }
 
+    struct Fulfill {
+        uint32 orderId;
+        address maker;
+        address taker;
+        address inputToken;
+        uint256 inputAmount;
+        address outputToken;
+        uint256 outputAmount;
+        uint32 quorumThresholdPercentage;
+        bytes quorumNumbers;
+        uint256 expiry;
+        bytes sig;
+    }
+
     /* MODIFIERS */
     modifier onlyAggregator() {
         require(msg.sender == aggregator, "Aggregator must be the caller");
@@ -88,15 +104,29 @@ OperatorStateRetriever
     }
 
     function fulfill(
-        uint32 orderId,
-        address maker,
-        address inputToken,
-        uint256 inputAmount,
-        address outputToken,
-        uint256 outputAmount,
-        uint32 quorumThresholdPercentage,
-        bytes calldata quorumNumbers
+        Fulfill calldata fulfill
     ) public {
+        // expand fulfill struct
+        uint32 orderId = fulfill.orderId;
+        address maker = fulfill.maker;
+        address taker = fulfill.taker;
+        address inputToken = fulfill.inputToken;
+        uint256 inputAmount = fulfill.inputAmount;
+        address outputToken = fulfill.outputToken;
+        uint256 outputAmount = fulfill.outputAmount;
+        uint32 quorumThresholdPercentage = fulfill.quorumThresholdPercentage;
+        bytes memory quorumNumbers = fulfill.quorumNumbers;
+        uint256 expiry = fulfill.expiry;
+        bytes memory sig = fulfill.sig;
+        // check taker address
+        require(taker == address(0) || msg.sender == taker, "taker is not msg sender");
+        require(expiry > block.timestamp, "order is expired");
+        // prepare data to verify signature
+        bytes32 hash = keccak256(abi.encodePacked(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, expiry));
+        // recover the signer's address
+        address signer = hash.toEthSignedMessageHash().recover(sig);
+        // check that the signer is the maker
+        require(signer == maker, "invalid signature");
         Order memory order = Order(
             orderId,
             inputToken,
@@ -175,7 +205,4 @@ OperatorStateRetriever
         emit OrderRespondedEvent(orderResponse, orderResponseMetadata);
     }
 
-    function orderNumber() external view returns (uint32) {
-        return latestOrderNum;
-    }
 }
