@@ -30,9 +30,10 @@ contract FulfillOrder is SignUtils, Utils {
         uint256 outputAmount = 200;
         bytes memory quorumNumbers = new bytes(1);
         uint256 expiry = block.timestamp + 1000;
-        bytes memory content = abi.encodePacked(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, expiry);
+        uint32 targetNetworkNumber = 17000;
+        bytes memory content = abi.encodePacked(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, expiry, targetNetworkNumber);
         bytes memory sig = signContent(pk, content);
-        settlement.fulfill(Settlement.Fulfill(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, 100, quorumNumbers, expiry, sig));
+        settlement.fulfill(Settlement.Fulfill(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, 100, quorumNumbers, expiry, targetNetworkNumber, sig));
         vm.stopBroadcast();
     }
 }

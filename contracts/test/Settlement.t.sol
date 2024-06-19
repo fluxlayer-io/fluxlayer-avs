@@ -18,6 +18,7 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
     address outputToken = address(2);
     uint256 outputAmount = 100;
     uint256 expiry = block.timestamp + 1;
+    uint32 targetNetworkNumber = 17000;
     bytes quorumNumbers = new bytes(0);
     bytes sig;
     bytes invalidSig;
@@ -44,27 +45,27 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
     }
 
     function signOrder(uint256 pk) public returns (bytes memory) {
-        bytes memory content = abi.encodePacked(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, expiry);
+        bytes memory content = abi.encodePacked(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, expiry, targetNetworkNumber);
         return signContent(pk, content);
     }
 
     function testFulfillRevertWhenTakerIsNotMsgSender() public {
         // expect revert
         vm.expectRevert();
-        settlement.fulfill(Settlement.Fulfill(orderId, maker, address(4), inputToken, inputAmount, outputToken, outputAmount, 100, quorumNumbers, expiry, sig));
+        settlement.fulfill(Settlement.Fulfill(orderId, maker, address(4), inputToken, inputAmount, outputToken, outputAmount, 100, quorumNumbers, expiry, targetNetworkNumber, sig));
     }
 
     function testFulFillRevertWhenExpiry() public {
         vm.expectRevert();
-        settlement.fulfill(Settlement.Fulfill(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, 100, quorumNumbers, 0, sig));
+        settlement.fulfill(Settlement.Fulfill(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, 100, quorumNumbers, 0, targetNetworkNumber, sig));
     }
 
     function testFulFillRevertWhenInvalidSig() public {
         vm.expectRevert();
-        settlement.fulfill(Settlement.Fulfill(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, 100, quorumNumbers, expiry, invalidSig));
+        settlement.fulfill(Settlement.Fulfill(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, 100, quorumNumbers, expiry, targetNetworkNumber, invalidSig));
     }
 
     function testFulFill() public {
-        settlement.fulfill(Settlement.Fulfill(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, 100, quorumNumbers, expiry, sig));
+        settlement.fulfill(Settlement.Fulfill(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, 100, quorumNumbers, expiry, targetNetworkNumber, sig));
     }
 }

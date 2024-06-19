@@ -83,6 +83,7 @@ OperatorStateRetriever
         uint32 quorumThresholdPercentage;
         bytes quorumNumbers;
         uint256 expiry;
+        uint32 targetNetworkNumber;
         bytes sig;
     }
 
@@ -122,11 +123,12 @@ OperatorStateRetriever
         bytes memory quorumNumbers = fulfill.quorumNumbers;
         uint256 expiry = fulfill.expiry;
         bytes memory sig = fulfill.sig;
+        uint32 targetNetworkNumber = fulfill.targetNetworkNumber;
         // check taker address
         if (taker != address(0) && msg.sender != taker) revert TakerMismatch();
         if (expiry < block.timestamp) revert OrderExpired();
         // prepare data to verify signature
-        bytes32 hash = keccak256(abi.encodePacked(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, expiry));
+        bytes32 hash = keccak256(abi.encodePacked(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, expiry, targetNetworkNumber));
         // recover the signer's address
         address signer = hash.toEthSignedMessageHash().recover(sig);
         // check that the signer is the maker
