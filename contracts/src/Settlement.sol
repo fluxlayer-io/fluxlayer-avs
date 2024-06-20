@@ -4,7 +4,9 @@ import "@eigenlayer/contracts/permissions/Pausable.sol";
 import "../lib/eigenlayer-middleware/src/interfaces/IRegistryCoordinator.sol";
 import {BLSSignatureChecker, IRegistryCoordinator} from "@eigenlayer-middleware/src/BLSSignatureChecker.sol";
 import {OperatorStateRetriever} from "@eigenlayer-middleware/src/OperatorStateRetriever.sol";
-import "@openzeppelin-upgrades/contracts/utils/cryptography/ECDSAUpgradeable.sol";
+import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract Settlement is
 Initializable,
@@ -14,9 +16,9 @@ BLSSignatureChecker,
 OperatorStateRetriever
 {
     using BN254 for BN254.G1Point;
-    using ECDSAUpgradeable for bytes32;
     // fulfill event
-    event fulfillEvent(uint32 orderId, uint32 orderNum, address maker, address taker, address inputToken, uint256 inputAmount, address outputToken, uint256 outputAmount,
+    event fulfillEvent(
+        Order order,
         uint32 quorumThresholdPercentage,
         bytes quorumNumbers
     );
@@ -25,8 +27,6 @@ OperatorStateRetriever
         OrderResponseMetadata OrderResponseMetadata
     );
     /* STORAGE */
-    // The latest order number
-    uint32 public latestOrderNum;
     // mapping of order indices to all order hashes
     // when an order is fulfilled, order hash is stored here,
     // and responses need to pass the actual order,
@@ -47,12 +47,16 @@ OperatorStateRetriever
     // STRUCTS
     struct Order {
         uint32 orderId;
+        address maker;
+        address taker;
         address inputToken;
         uint256 inputAmount;
         address outputToken;
         uint256 outputAmount;
         uint32 quorumThresholdPercentage;
         bytes quorumNumbers;
+        uint256 expiry;
+        uint32 targetNetworkNumber;
         uint32 createdBlock;
     }
 
@@ -70,21 +74,6 @@ OperatorStateRetriever
     struct OrderResponseMetadata {
         uint32 orderResponsedBlock;
         bytes32 hashOfNonSigners;
-    }
-
-    struct Fulfill {
-        uint32 orderId;
-        address maker;
-        address taker;
-        address inputToken;
-        uint256 inputAmount;
-        address outputToken;
-        uint256 outputAmount;
-        uint32 quorumThresholdPercentage;
-        bytes quorumNumbers;
-        uint256 expiry;
-        uint32 targetNetworkNumber;
-        bytes sig;
     }
 
     /* MODIFIERS */
@@ -108,45 +97,25 @@ OperatorStateRetriever
         aggregator = _aggregator;
     }
 
-    function fulfill(
-        Fulfill calldata fulfill
-    ) public {
-        // expand fulfill struct
-        uint32 orderId = fulfill.orderId;
-        address maker = fulfill.maker;
-        address taker = fulfill.taker;
-        address inputToken = fulfill.inputToken;
-        uint256 inputAmount = fulfill.inputAmount;
-        address outputToken = fulfill.outputToken;
-        uint256 outputAmount = fulfill.outputAmount;
-        uint32 quorumThresholdPercentage = fulfill.quorumThresholdPercentage;
-        bytes memory quorumNumbers = fulfill.quorumNumbers;
-        uint256 expiry = fulfill.expiry;
-        bytes memory sig = fulfill.sig;
-        uint32 targetNetworkNumber = fulfill.targetNetworkNumber;
+    function fulfill(Order memory order, bytes calldata sig) public {
         // check taker address
-        if (taker != address(0) && msg.sender != taker) revert TakerMismatch();
-        if (expiry < block.timestamp) revert OrderExpired();
+        if (order.taker != address(0) && msg.sender != order.taker) revert TakerMismatch();
+        if (order.expiry < block.timestamp) revert OrderExpired();
         // prepare data to verify signature
-        bytes32 hash = keccak256(abi.encodePacked(orderId, maker, taker, inputToken, inputAmount, outputToken, outputAmount, expiry, targetNetworkNumber));
+        bytes32 hash = keccak256(abi.encodePacked(order.orderId, order.maker, order.taker, order.inputToken, order.inputAmount, order.outputToken, order.outputAmount, order.expiry, order.targetNetworkNumber));
         // recover the signer's address
-        address signer = hash.toEthSignedMessageHash().recover(sig);
+        bool validSig = SignatureChecker.isValidSignatureNow(order.maker, ECDSA.toEthSignedMessageHash(hash), sig);
         // check that the signer is the maker
-        if (signer != maker) revert InvalidSignature();
-        Order memory order = Order(
-            orderId,
-            inputToken,
-            inputAmount,
-            outputToken,
-            outputAmount,
-            quorumThresholdPercentage,
-            quorumNumbers,
-            uint32(block.number)
-        );
-        allOrderHashes[latestOrderNum] = keccak256(abi.encode(order));
-        allOrderDetails[latestOrderNum] = order;
-        emit fulfillEvent(orderId, latestOrderNum, maker, msg.sender, inputToken, inputAmount, outputToken, outputAmount, quorumThresholdPercentage, quorumNumbers);
-        latestOrderNum = latestOrderNum + 1;
+        if (!validSig) revert InvalidSignature();
+        // transfer the tokens
+        IERC20(order.inputToken).transferFrom(order.maker, msg.sender, order.inputAmount);
+        IERC20(order.outputToken).transferFrom(msg.sender, order.maker, order.outputAmount);
+        // set order taker
+        order.taker = msg.sender;
+        order.createdBlock = uint32(block.number);
+        allOrderHashes[order.orderId] = keccak256(abi.encode(order));
+        allOrderDetails[order.orderId] = order;
+        emit fulfillEvent(order, order.quorumThresholdPercentage, order.quorumNumbers);
     }
 
     // NOTE: this function responds to existing tasks.

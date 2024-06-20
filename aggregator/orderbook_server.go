@@ -7,8 +7,8 @@ import (
 import "encoding/json"
 
 func (ob *OrderBook) StartOrderBookServer() {
-	http.HandleFunc("/order", ob.addOrderHandler)
-	http.HandleFunc("/orders", ob.getOrdersHandler)
+	http.HandleFunc("/api/v1/order", ob.addOrderHandler)
+	http.HandleFunc("/api/v1/orders", ob.getOrdersHandler)
 	http.ListenAndServe(":8080", nil)
 }
 
@@ -22,7 +22,7 @@ func (ob *OrderBook) addOrderHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		// Check if required fields are present and valid
 		if order.Maker == "" || order.InputToken == "" || order.InputAmount == 0 ||
-			order.OutputToken == "" || order.OutputAmount == 0 {
+			order.OutputToken == "" || order.OutputAmount == 0 || order.TargetNetworkNumber == 0 {
 			http.Error(w, "Missing or invalid required fields", http.StatusBadRequest)
 			return
 		}

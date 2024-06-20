@@ -329,7 +329,7 @@ func (o *Operator) ProcessNewFulfillmentLog(fulfillLog *settlement.ContractSettl
 	// check if txHash is mined
 	txSuccess := o.waitForTransactionSuccess(context.Background(), fulfillLog.Raw.TxHash.Hex())
 	taskResponse := &settlement.SettlementOrderResponse{
-		ReferenceOrderIndex: fulfillLog.OrderNum,
+		ReferenceOrderIndex: fulfillLog.Order.OrderId,
 		TxSuccess:           txSuccess,
 	}
 	return taskResponse
