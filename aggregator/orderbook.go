@@ -2,14 +2,15 @@ package aggregator
 
 type Order struct {
 	OrderId             uint32 `json:"orderId"`
-	Maker               string `json:"maker"`
-	Taker               string `json:"taker"`
-	InputToken          string `json:"inputToken"`
-	InputAmount         uint64 `json:"inputAmount"`
-	OutputToken         string `json:"outputToken"`
-	OutputAmount        uint64 `json:"outputAmount"`
+	Maker               string `json:"from"`
+	Taker               string `json:"receiver"`
+	InputToken          string `json:"sellToken"`
+	InputAmount         uint64 `json:"sellAmount"`
+	OutputToken         string `json:"buyToken"`
+	OutputAmount        uint64 `json:"buyAmount"`
 	IsFulfilled         bool   `json:"isFulfilled"`
 	Tx                  string `json:"tx"`
+	Expiry              uint64 `json:"validTo"`
 	TargetNetworkNumber uint32 `json:"targetNetworkNumber"`
 }
 
