@@ -72,6 +72,7 @@ type Aggregator struct {
 	tasksMu               sync.RWMutex
 	taskResponses         map[types.TaskIndex]map[sdktypes.TaskResponseDigest]settlement.SettlementOrderResponse
 	taskResponsesMu       sync.RWMutex
+	orderBook             *OrderBook
 }
 
 // NewAggregator creates a new Aggregator with the provided config.
@@ -114,6 +115,7 @@ func NewAggregator(c *config.Config) (*Aggregator, error) {
 		blsAggregationService: blsAggregationService,
 		tasks:                 make(map[sdktypes.TaskIndex]settlement.SettlementOrder),
 		taskResponses:         make(map[types.TaskIndex]map[sdktypes.TaskResponseDigest]settlement.SettlementOrderResponse),
+		orderBook:             &OrderBook{},
 	}, nil
 }
 
@@ -121,6 +123,8 @@ func (agg *Aggregator) Start(ctx context.Context) error {
 	agg.logger.Infof("Starting aggregator.")
 	agg.logger.Infof("Starting aggregator rpc server.")
 	go agg.startServer(ctx)
+	agg.logger.Info("Starting order book server.")
+	go agg.orderBook.StartOrderBookServer()
 
 	for {
 		select {
