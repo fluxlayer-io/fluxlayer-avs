@@ -31,8 +31,9 @@ import "../src/FluxLayerServiceManager.sol";
 
 // # To deploy and verify our contract
 // anvil --block-time 5 -f https://ethereum-holesky-rpc.publicnode.com
-// forge script script/FluxLayerDeployer.s.sol:FluxLayerDeployer --rpc-url http://127.0.0.1:8545  --private-key 0x3b5d8eba232abf04faa6b3cdd0f72148ccd8b52ab4881aaf21a8bf378260e45a --legacy --broadcast
+// forge script script/FluxLayerDeployer.s.sol:FluxLayerDeployer --rpc-url http://127.0.0.1:8545 --legacy --broadcast
 contract FluxLayerDeployer is Script, Utils {
+    uint256 public PK = vm.envUint("PRIVATE_KEY");
     // DEPLOYMENT CONSTANTS
     uint256 public constant QUORUM_THRESHOLD_PERCENTAGE = 100;
     uint32 public constant TASK_RESPONSE_WINDOW_BLOCK = 30;
@@ -69,6 +70,9 @@ contract FluxLayerDeployer is Script, Utils {
 
     Settlement public settlement;
     Settlement public settlementImplementation;
+
+    ERC20Mock public inputToken;
+    ERC20Mock public outputToken;
 
     function run() external {
         // Eigenlayer contracts
@@ -115,7 +119,7 @@ contract FluxLayerDeployer is Script, Utils {
         address credibleSquaringCommunityMultisig = msg.sender;
         address credibleSquaringPauser = msg.sender;
 
-        vm.startBroadcast();
+        vm.startBroadcast(PK);
         _deployErc20AndStrategyAndWhitelistStrategy(
             eigenLayerProxyAdmin,
             eigenLayerPauserReg,
@@ -384,6 +388,9 @@ contract FluxLayerDeployer is Script, Utils {
             )
         );
 
+        inputToken = new ERC20Mock();
+        outputToken = new ERC20Mock();
+
         // WRITE JSON DATA
         string memory parent_object = "parent object";
 
@@ -429,12 +436,21 @@ contract FluxLayerDeployer is Script, Utils {
             "settlementImplementation",
             address(settlementImplementation)
         );
+        vm.serializeAddress(
+            deployed_addresses,
+            "inputToken",
+            address(inputToken)
+        );
+        vm.serializeAddress(
+            deployed_addresses,
+            "outputToken",
+            address(outputToken)
+        );
         string memory deployed_addresses_output = vm.serializeAddress(
             deployed_addresses,
             "operatorStateRetriever",
             address(operatorStateRetriever)
         );
-
         // serialize all the data
         string memory finalJson = vm.serializeString(
             parent_object,

@@ -57,18 +57,23 @@ type TaskResponseWrapper struct {
 func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapper, reply *bool) error {
 	signedTaskResponse := taskResponse.SignedTaskResponse
 	fulfillment := taskResponse.Fulfillment
-	agg.logger.Infof("Initializing new task for order %d, block %d", fulfillment.OrderNum, fulfillment.Raw.BlockNumber)
+	order := fulfillment.Order
+	agg.logger.Infof("Initializing new task for order %d, block %d", order.OrderId, fulfillment.Raw.BlockNumber)
 	// TODO: set quorum number, threshold percentage, and timeout as constants
-	agg.blsAggregationService.InitializeNewTask(fulfillment.OrderNum, uint32(fulfillment.Raw.BlockNumber), aggtypes.QUORUM_NUMBERS, types.QuorumThresholdPercentages{100}, time.Second*3600)
+	agg.blsAggregationService.InitializeNewTask(fulfillment.Order.OrderId, uint32(fulfillment.Raw.BlockNumber), aggtypes.QUORUM_NUMBERS, types.QuorumThresholdPercentages{100}, time.Second*3600)
 	agg.tasksMu.Lock()
-	agg.tasks[fulfillment.OrderNum] = settlement.SettlementOrder{
-		OrderId:                   fulfillment.OrderId,
-		InputToken:                fulfillment.InputToken,
-		InputAmount:               fulfillment.InputAmount,
-		OutputToken:               fulfillment.OutputToken,
-		OutputAmount:              fulfillment.OutputAmount,
-		QuorumThresholdPercentage: fulfillment.QuorumThresholdPercentage,
-		QuorumNumbers:             fulfillment.QuorumNumbers,
+	agg.tasks[order.OrderId] = settlement.SettlementOrder{
+		OrderId:                   order.OrderId,
+		Maker:                     order.Maker,
+		Taker:                     order.Taker,
+		InputToken:                order.InputToken,
+		InputAmount:               order.InputAmount,
+		OutputToken:               order.OutputToken,
+		OutputAmount:              order.OutputAmount,
+		QuorumThresholdPercentage: order.QuorumThresholdPercentage,
+		QuorumNumbers:             order.QuorumNumbers,
+		Expiry:                    order.Expiry,
+		TargetNetworkNumber:       order.TargetNetworkNumber,
 		CreatedBlock:              uint32(fulfillment.Raw.BlockNumber),
 	}
 	agg.tasksMu.Unlock()
@@ -95,7 +100,7 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	if err == nil {
 		// update order status
 		agg.logger.Info("Update order fulfillment state")
-		agg.orderBook.FulfillOrder(fulfillment.OrderId, fulfillment.Taker.Hex(), fulfillment.Raw.TxHash.Hex(), taskIndex)
+		agg.orderBook.FulfillOrder(fulfillment.Order.OrderId, fulfillment.Order.Taker.Hex(), fulfillment.Raw.TxHash.Hex())
 	}
 	return err
 }

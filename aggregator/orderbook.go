@@ -1,16 +1,17 @@
 package aggregator
 
 type Order struct {
-	OrderId      uint32 `json:"orderId"`
-	Maker        string `json:"maker"`
-	Taker        string `json:"taker"`
-	InputToken   string `json:"inputToken"`
-	InputAmount  uint64 `json:"inputAmount"`
-	OutputToken  string `json:"outputToken"`
-	OutputAmount uint64 `json:"outputAmount"`
-	IsFulfilled  bool   `json:"isFulfilled"`
-	Tx           string `json:"tx"`
-	OrderNum     uint32 `json:"orderNum"`
+	OrderId             uint32 `json:"orderId"`
+	Maker               string `json:"from"`
+	Taker               string `json:"receiver"`
+	InputToken          string `json:"sellToken"`
+	InputAmount         string `json:"sellAmount"`
+	OutputToken         string `json:"buyToken"`
+	OutputAmount        string `json:"buyAmount"`
+	IsFulfilled         bool   `json:"isFulfilled"`
+	Tx                  string `json:"tx"`
+	Expiry              uint64 `json:"validTo"`
+	TargetNetworkNumber uint32 `json:"targetNetworkNumber"`
 }
 
 type OrderBook struct {
@@ -38,13 +39,12 @@ func (ob *OrderBook) AddOrder(order *Order) {
 }
 
 // FulfillOrder
-func (ob *OrderBook) FulfillOrder(orderId uint32, taker string, tx string, orderNum uint32) {
+func (ob *OrderBook) FulfillOrder(orderId uint32, taker string, tx string) {
 	for _, order := range ob.orders {
 		if order.OrderId == orderId {
 			order.IsFulfilled = true
 			order.Taker = taker
 			order.Tx = tx
-			order.OrderNum = orderNum
 		}
 	}
 }

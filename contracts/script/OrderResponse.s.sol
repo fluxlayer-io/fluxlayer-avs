@@ -16,7 +16,7 @@ contract OrderResponse is Script, Utils {
             )
         );
 
-        bytes32 response = settlement.allOrderResponses(settlement.latestOrderNum() - 1);
+        bytes32 response = settlement.allOrderResponses(1);
         console.logBytes32(response);
     }
 }

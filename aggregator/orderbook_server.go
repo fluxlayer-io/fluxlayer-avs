@@ -1,19 +1,26 @@
 package aggregator
 
 import (
+	"encoding/json"
+	"github.com/rs/cors"
 	"net/http"
 	"strconv"
 )
-import "encoding/json"
 
 func (ob *OrderBook) StartOrderBookServer() {
-	http.HandleFunc("/order", ob.addOrderHandler)
-	http.HandleFunc("/orders", ob.getOrdersHandler)
-	http.ListenAndServe(":8080", nil)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/orders", ob.orderHandler)
+	corsHandler := cors.Default().Handler(mux)
+	http.ListenAndServe(":8080", corsHandler)
+}
+
+func (ob *OrderBook) orderHandler(w http.ResponseWriter, r *http.Request) {
+	ob.addOrderHandler(w, r)
+	ob.getOrdersHandler(w, r)
 }
 
 func (ob *OrderBook) addOrderHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost {
+	if r.Method == http.MethodOptions || r.Method == http.MethodPost {
 		var order Order
 		err := json.NewDecoder(r.Body).Decode(&order)
 		if err != nil {
@@ -21,8 +28,8 @@ func (ob *OrderBook) addOrderHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Check if required fields are present and valid
-		if order.Maker == "" || order.InputToken == "" || order.InputAmount == 0 ||
-			order.OutputToken == "" || order.OutputAmount == 0 {
+		if order.Maker == "" || order.InputToken == "" || order.InputAmount == "" ||
+			order.OutputToken == "" || order.OutputAmount == "" || order.TargetNetworkNumber == 0 {
 			http.Error(w, "Missing or invalid required fields", http.StatusBadRequest)
 			return
 		}
@@ -31,15 +38,11 @@ func (ob *OrderBook) addOrderHandler(w http.ResponseWriter, r *http.Request) {
 		orderIdStr := strconv.Itoa(int(order.OrderId))
 		// Write orderId to the response
 		w.Write([]byte(orderIdStr))
-	} else {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 	}
 }
 
 func (ob *OrderBook) getOrdersHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		json.NewEncoder(w).Encode(ob.GetOrders())
-	} else {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 	}
 }

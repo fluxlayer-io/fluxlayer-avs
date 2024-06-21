@@ -4,6 +4,9 @@ import "@eigenlayer/contracts/permissions/Pausable.sol";
 import "../lib/eigenlayer-middleware/src/interfaces/IRegistryCoordinator.sol";
 import {BLSSignatureChecker, IRegistryCoordinator} from "@eigenlayer-middleware/src/BLSSignatureChecker.sol";
 import {OperatorStateRetriever} from "@eigenlayer-middleware/src/OperatorStateRetriever.sol";
+import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract Settlement is
 Initializable,
@@ -14,7 +17,8 @@ OperatorStateRetriever
 {
     using BN254 for BN254.G1Point;
     // fulfill event
-    event fulfillEvent(uint32 orderId, uint32 orderNum, address maker, address taker, address inputToken, uint256 inputAmount, address outputToken, uint256 outputAmount,
+    event fulfillEvent(
+        Order order,
         uint32 quorumThresholdPercentage,
         bytes quorumNumbers
     );
@@ -23,8 +27,6 @@ OperatorStateRetriever
         OrderResponseMetadata OrderResponseMetadata
     );
     /* STORAGE */
-    // The latest order number
-    uint32 public latestOrderNum;
     // mapping of order indices to all order hashes
     // when an order is fulfilled, order hash is stored here,
     // and responses need to pass the actual order,
@@ -38,15 +40,23 @@ OperatorStateRetriever
     uint256 internal constant _THRESHOLD_DENOMINATOR = 100;
     address public aggregator;
 
+    error TakerMismatch();
+    error OrderExpired();
+    error InvalidSignature();
+
     // STRUCTS
     struct Order {
         uint32 orderId;
+        address maker;
+        address taker;
         address inputToken;
         uint256 inputAmount;
         address outputToken;
         uint256 outputAmount;
         uint32 quorumThresholdPercentage;
         bytes quorumNumbers;
+        uint256 expiry;
+        uint32 targetNetworkNumber;
         uint32 createdBlock;
     }
 
@@ -87,30 +97,25 @@ OperatorStateRetriever
         aggregator = _aggregator;
     }
 
-    function fulfill(
-        uint32 orderId,
-        address maker,
-        address inputToken,
-        uint256 inputAmount,
-        address outputToken,
-        uint256 outputAmount,
-        uint32 quorumThresholdPercentage,
-        bytes calldata quorumNumbers
-    ) public {
-        Order memory order = Order(
-            orderId,
-            inputToken,
-            inputAmount,
-            outputToken,
-            outputAmount,
-            quorumThresholdPercentage,
-            quorumNumbers,
-            uint32(block.number)
-        );
-        allOrderHashes[latestOrderNum] = keccak256(abi.encode(order));
-        allOrderDetails[latestOrderNum] = order;
-        emit fulfillEvent(orderId, latestOrderNum, maker, msg.sender, inputToken, inputAmount, outputToken, outputAmount, quorumThresholdPercentage, quorumNumbers);
-        latestOrderNum = latestOrderNum + 1;
+    function fulfill(Order memory order, bytes calldata sig) public {
+        // check taker address
+        if (order.taker != address(0) && msg.sender != order.taker) revert TakerMismatch();
+        if (order.expiry < block.timestamp) revert OrderExpired();
+        // prepare data to verify signature
+        bytes32 hash = keccak256(abi.encodePacked(order.orderId, order.maker, order.taker, order.inputToken, order.inputAmount, order.outputToken, order.outputAmount, order.expiry, order.targetNetworkNumber));
+        // recover the signer's address
+        bool validSig = SignatureChecker.isValidSignatureNow(order.maker, ECDSA.toEthSignedMessageHash(hash), sig);
+        // check that the signer is the maker
+        if (!validSig) revert InvalidSignature();
+        // transfer the tokens
+        IERC20(order.inputToken).transferFrom(order.maker, msg.sender, order.inputAmount);
+        IERC20(order.outputToken).transferFrom(msg.sender, order.maker, order.outputAmount);
+        // set order taker
+        order.taker = msg.sender;
+        order.createdBlock = uint32(block.number);
+        allOrderHashes[order.orderId] = keccak256(abi.encode(order));
+        allOrderDetails[order.orderId] = order;
+        emit fulfillEvent(order, order.quorumThresholdPercentage, order.quorumNumbers);
     }
 
     // NOTE: this function responds to existing tasks.
@@ -175,7 +180,4 @@ OperatorStateRetriever
         emit OrderRespondedEvent(orderResponse, orderResponseMetadata);
     }
 
-    function orderNumber() external view returns (uint32) {
-        return latestOrderNum;
-    }
 }
