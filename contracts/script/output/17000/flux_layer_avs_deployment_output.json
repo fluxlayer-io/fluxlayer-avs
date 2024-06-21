@@ -1,15 +1,15 @@
 {
   "addresses": {
-    "erc20Mock": "0xA2CDe41682b8Fa4CB85ddf322aF3D0Bb8EBb296A",
-    "erc20MockStrategy": "0xa3e8F1eD91A86CF90f338a9a372B920D201b4D43",
-    "fluxLayerServiceManager": "0xC6C8261B14B494b5c5db4ce0Ccb2069eF3150121",
-    "fluxLayerServiceManagerImplementation": "0xE26B760C69FB0Ce2D6f31B9c41c9b0aE2615808f",
-    "inputToken": "0xfD835df8a68573e564823Af502A4E4dff309be61",
-    "operatorStateRetriever": "0xf789A92bAB68aC164e260369B16995F9a0aD9214",
-    "outputToken": "0xd00F86bACDF711CB5FF502EEe8b9298B7ab7468B",
-    "registryCoordinator": "0x6e8b6931432d3974dB47101c57CC6A239D31F219",
-    "registryCoordinatorImplementation": "0x8b0094E5Ea95370A4c78C2972b1D24F0137715C0",
-    "settlement": "0x950F04D8dF07c764f34Eb16A1e400e626900fF8F",
-    "settlementImplementation": "0xaE23DDA6394199224BBa9113Cde268Dc0bc87d6F"
+    "erc20Mock": "0xdEBd620B81fb24A15bceE5624fdA2D41Ce8aAc9D",
+    "erc20MockStrategy": "0xBa6788462D1b7E951686177f2c4f1cE1746CEB49",
+    "fluxLayerServiceManager": "0x4eDe15E144C9Cb5D14676D1d9A9eD1F19Ff404c5",
+    "fluxLayerServiceManagerImplementation": "0x3e98852D32E20D085D88cAbef91AA35Cc56652aB",
+    "inputToken": "0xC36E19B16c276D10BE40c7b9D3c026E8f482f2aD",
+    "operatorStateRetriever": "0x1757B9f1EEc499BCADa04fc6C5bf3A27FB58DF30",
+    "outputToken": "0xCC26717C166095Eb8C5b8D5aE0fE35D05adeDc60",
+    "registryCoordinator": "0xce09BFDbA7820329d098282b08ad564Abf6C01fc",
+    "registryCoordinatorImplementation": "0xE76a296e862Bf6fF9857597D78758E7c5f9F646a",
+    "settlement": "0x350DeAa5DdC87f5b32575568130Eef31BA01a654",
+    "settlementImplementation": "0x9916f642bfe3Cae29c628EB35381c72446A07D80"
   }
 }

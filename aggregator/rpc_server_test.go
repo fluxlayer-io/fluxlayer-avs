@@ -60,9 +60,8 @@ func TestProcessSignedTaskResponse(t *testing.T) {
 
 // mocks an operator signing on a task response
 func createMockSignedTaskResponse(mockTask MockTask, keypair bls.KeyPair) (*SignedTaskResponse, error) {
-	taskResponse := &settlement.SettlementOrderResponse{
+	taskResponse := &settlement.ISettlementOrderResponse{
 		ReferenceOrderIndex: mockTask.TaskNum,
-		TxSuccess:           true,
 	}
 	taskResponseHash, err := core.GetTaskResponseDigest(taskResponse)
 	if err != nil {

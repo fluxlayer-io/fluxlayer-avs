@@ -10,10 +10,10 @@ operator_address: 0x860B6912C2d0337ef05bbC89b0C2CB6CbAEAB4A5
 # TODO(samlaf): automate updating these addresses when we deploy new contracts
 #avs_registry_coordinator_address: 0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9
 # https://github.com/Layr-Labs/eigenlayer-middleware?tab=readme-ov-file
-avs_registry_coordinator_address: 0x6e8b6931432d3974dB47101c57CC6A239D31F219
+avs_registry_coordinator_address: 0xce09BFDbA7820329d098282b08ad564Abf6C01fc
 #operator_state_retriever_address: 0x95401dc811bb5740090279Ba06cfA8fcF6113778
-operator_state_retriever_address: 0xf789A92bAB68aC164e260369B16995F9a0aD9214
-settlement_address: 0x950F04D8dF07c764f34Eb16A1e400e626900fF8F
+operator_state_retriever_address: 0x1757B9f1EEc499BCADa04fc6C5bf3A27FB58DF30
+settlement_address: 0x350DeAa5DdC87f5b32575568130Eef31BA01a654
 
 # ETH RPC URL
 eth_rpc_url: http://localhost:8545
@@ -44,7 +44,7 @@ enable_metrics: true
 node_api_ip_port_address: localhost:9010
 enable_node_api: true
 
-register_operator_on_startup: true
+register_operator_on_startup: false
 # address of token to deposit tokens into when registering on startup
 # addresses.erc20MockStrategy in tests/anvil/flux_layer_avs_deployment_output.json
 token_strategy_addr: 0xBa6788462D1b7E951686177f2c4f1cE1746CEB49

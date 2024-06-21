@@ -5,6 +5,7 @@ import (
 	"errors"
 	aggtypes "github.com/Layr-Labs/incredible-squaring-avs/aggregator/types"
 	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
+	"github.com/ethereum/go-ethereum/common"
 	"net/http"
 	"net/rpc"
 	"time"
@@ -41,7 +42,7 @@ func (agg *Aggregator) startServer(ctx context.Context) error {
 }
 
 type SignedTaskResponse struct {
-	TaskResponse settlement.SettlementOrderResponse
+	TaskResponse settlement.ISettlementOrderResponse
 	BlsSignature bls.Signature
 	OperatorId   types.OperatorId
 }
@@ -58,23 +59,19 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	signedTaskResponse := taskResponse.SignedTaskResponse
 	fulfillment := taskResponse.Fulfillment
 	order := fulfillment.Order
-	agg.logger.Infof("Initializing new task for order %d, block %d", order.OrderId, fulfillment.Raw.BlockNumber)
+	agg.logger.Infof("Initializing new task for order %d, block %d", fulfillment.OrderId, fulfillment.Raw.BlockNumber)
 	// TODO: set quorum number, threshold percentage, and timeout as constants
-	agg.blsAggregationService.InitializeNewTask(fulfillment.Order.OrderId, uint32(fulfillment.Raw.BlockNumber), aggtypes.QUORUM_NUMBERS, types.QuorumThresholdPercentages{100}, time.Second*3600)
+	agg.blsAggregationService.InitializeNewTask(fulfillment.OrderId, uint32(fulfillment.Raw.BlockNumber), aggtypes.QUORUM_NUMBERS, types.QuorumThresholdPercentages{100}, time.Second*3600)
 	agg.tasksMu.Lock()
-	agg.tasks[order.OrderId] = settlement.SettlementOrder{
-		OrderId:                   order.OrderId,
-		Maker:                     order.Maker,
-		Taker:                     order.Taker,
-		InputToken:                order.InputToken,
-		InputAmount:               order.InputAmount,
-		OutputToken:               order.OutputToken,
-		OutputAmount:              order.OutputAmount,
-		QuorumThresholdPercentage: order.QuorumThresholdPercentage,
-		QuorumNumbers:             order.QuorumNumbers,
-		Expiry:                    order.Expiry,
-		TargetNetworkNumber:       order.TargetNetworkNumber,
-		CreatedBlock:              uint32(fulfillment.Raw.BlockNumber),
+	agg.tasks[fulfillment.OrderId] = settlement.ISettlementOrder{
+		Maker:               order.Maker,
+		Taker:               order.Taker,
+		InputToken:          order.InputToken,
+		InputAmount:         order.InputAmount,
+		OutputToken:         order.OutputToken,
+		OutputAmount:        order.OutputAmount,
+		Expiry:              order.Expiry,
+		TargetNetworkNumber: order.TargetNetworkNumber,
 	}
 	agg.tasksMu.Unlock()
 	agg.logger.Infof("Received signed task response: %#v", signedTaskResponse)
@@ -86,7 +83,7 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	}
 	agg.taskResponsesMu.Lock()
 	if _, ok := agg.taskResponses[taskIndex]; !ok {
-		agg.taskResponses[taskIndex] = make(map[sdktypes.TaskResponseDigest]settlement.SettlementOrderResponse)
+		agg.taskResponses[taskIndex] = make(map[sdktypes.TaskResponseDigest]settlement.ISettlementOrderResponse)
 	}
 	if _, ok := agg.taskResponses[taskIndex][taskResponseDigest]; !ok {
 		agg.taskResponses[taskIndex][taskResponseDigest] = signedTaskResponse.TaskResponse
@@ -100,7 +97,9 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	if err == nil {
 		// update order status
 		agg.logger.Info("Update order fulfillment state")
-		agg.orderBook.FulfillOrder(fulfillment.Order.OrderId, fulfillment.Order.Taker.Hex(), fulfillment.Raw.TxHash.Hex())
+		// convert sig to hex
+		sig := common.Bytes2Hex(fulfillment.Sig)
+		agg.orderBook.FulfillOrder(sig, fulfillment.OrderId, fulfillment.Order.Taker.Hex(), fulfillment.Raw.TxHash.Hex())
 	}
 	return err
 }

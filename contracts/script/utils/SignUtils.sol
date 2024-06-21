@@ -18,6 +18,11 @@ contract SignUtils is Script {
         return signatureToBytes(r, s, v);
     }
 
+    function signHash(uint256 pk, bytes32 hash) internal pure returns (bytes memory) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, hash);
+        return signatureToBytes(r, s, v);
+    }
+
     function toEthSignedMessageHash(bytes32 hash) internal pure returns (bytes32) {
         // 32 is the length in bytes of hash,
         // enforced by the type signature above

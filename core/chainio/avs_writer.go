@@ -8,6 +8,7 @@ import (
 	"github.com/Layr-Labs/eigensdk-go/chainio/txmgr"
 	"github.com/Layr-Labs/eigensdk-go/logging"
 	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
@@ -19,14 +20,14 @@ type AvsWriterer interface {
 
 	RaiseChallenge(
 		ctx context.Context,
-		order settlement.SettlementOrder,
-		orderResponse settlement.SettlementOrderResponse,
-		orderResponseMetadata settlement.SettlementOrderResponseMetadata,
+		order settlement.ISettlementOrder,
+		orderResponse settlement.ISettlementOrderResponse,
+		orderResponseMetadata settlement.ISettlementOrderResponseMetadata,
 		pubkeysOfNonSigningOperators []settlement.BN254G1Point,
 	) (*types.Receipt, error)
 	SendAggregatedResponse(ctx context.Context,
-		order settlement.SettlementOrder,
-		orderResponse settlement.SettlementOrderResponse,
+		order settlement.ISettlementOrder,
+		orderResponse settlement.ISettlementOrderResponse,
 		nonSignerStakesAndSignature settlement.IBLSSignatureCheckerNonSignerStakesAndSignature,
 	) (*types.Receipt, error)
 }
@@ -68,8 +69,8 @@ func NewAvsWriter(avsRegistryWriter avsregistry.AvsRegistryWriter, avsServiceBin
 
 func (w *AvsWriter) SendAggregatedResponse(
 	ctx context.Context,
-	order settlement.SettlementOrder,
-	orderResponse settlement.SettlementOrderResponse,
+	order settlement.ISettlementOrder,
+	orderResponse settlement.ISettlementOrderResponse,
 	nonSignerStakesAndSignature settlement.IBLSSignatureCheckerNonSignerStakesAndSignature,
 ) (*types.Receipt, error) {
 	txOpts, err := w.TxMgr.GetNoSendTxOpts()
@@ -77,7 +78,8 @@ func (w *AvsWriter) SendAggregatedResponse(
 		w.logger.Errorf("Error getting tx opts")
 		return nil, err
 	}
-	tx, err := w.AvsContractBindings.Settlement.RespondToFulfill(txOpts, order, orderResponse, nonSignerStakesAndSignature)
+	orderExec, _ := w.AvsContractBindings.Settlement.AllOrderExecutions(&bind.CallOpts{}, orderResponse.ReferenceOrderIndex)
+	tx, err := w.AvsContractBindings.Settlement.RespondToFulfill(txOpts, orderExec.QuorumNumbers, orderExec.QuorumThresholdPercentage, orderExec.CreatedBlock, orderResponse, nonSignerStakesAndSignature)
 	if err != nil {
 		w.logger.Error("Error submitting SubmitTaskResponse tx while calling respondToTask", "err", err)
 		return nil, err
@@ -92,9 +94,9 @@ func (w *AvsWriter) SendAggregatedResponse(
 
 func (w *AvsWriter) RaiseChallenge(
 	ctx context.Context,
-	order settlement.SettlementOrder,
-	orderResponse settlement.SettlementOrderResponse,
-	orderResponseMetadata settlement.SettlementOrderResponseMetadata,
+	order settlement.ISettlementOrder,
+	orderResponse settlement.ISettlementOrderResponse,
+	orderResponseMetadata settlement.ISettlementOrderResponseMetadata,
 	pubkeysOfNonSigningOperators []settlement.BN254G1Point,
 ) (*types.Receipt, error) {
 	return nil, errors.New("not implemented")

@@ -12,16 +12,12 @@ type Order struct {
 	Tx                  string `json:"tx"`
 	Expiry              uint64 `json:"validTo"`
 	TargetNetworkNumber uint32 `json:"targetNetworkNumber"`
+	Sig                 string `json:"signature"`
 }
 
 type OrderBook struct {
 	orders  []*Order
 	orderId uint32
-}
-
-func (ob *OrderBook) nextOrderId() uint32 {
-	ob.orderId++
-	return ob.orderId
 }
 
 // GetOrders
@@ -34,14 +30,14 @@ func (ob *OrderBook) GetOrders() []*Order {
 
 // AddOrder
 func (ob *OrderBook) AddOrder(order *Order) {
-	order.OrderId = ob.nextOrderId()
 	ob.orders = append(ob.orders, order)
 }
 
 // FulfillOrder
-func (ob *OrderBook) FulfillOrder(orderId uint32, taker string, tx string) {
+func (ob *OrderBook) FulfillOrder(sig string, orderId uint32, taker string, tx string) {
 	for _, order := range ob.orders {
-		if order.OrderId == orderId {
+		if order.Sig == sig && order.OrderId == 0 {
+			order.OrderId = orderId
 			order.IsFulfilled = true
 			order.Taker = taker
 			order.Tx = tx

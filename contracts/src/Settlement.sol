@@ -7,74 +7,37 @@ import {OperatorStateRetriever} from "@eigenlayer-middleware/src/OperatorStateRe
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
+import "./ISettlement.sol";
+
 
 contract Settlement is
+ISettlement,
 Initializable,
 OwnableUpgradeable,
 Pausable,
 BLSSignatureChecker,
-OperatorStateRetriever
+OperatorStateRetriever,
+EIP712
 {
     using BN254 for BN254.G1Point;
-    // fulfill event
-    event fulfillEvent(
-        Order order,
-        uint32 quorumThresholdPercentage,
-        bytes quorumNumbers
-    );
-    event OrderRespondedEvent(
-        OrderResponse orderResponse,
-        OrderResponseMetadata OrderResponseMetadata
-    );
+    using ECDSA for bytes32;
     /* STORAGE */
     // mapping of order indices to all order hashes
     // when an order is fulfilled, order hash is stored here,
     // and responses need to pass the actual order,
+    uint32 orderId;
     // which is hashed onchain and checked against this mapping
     mapping(uint32 => bytes32) public allOrderHashes;
     mapping(uint32 => Order) public allOrderDetails;
+    mapping(uint32 => OrderExecution) public allOrderExecutions;
     // mapping of order indices to hash of abi.encode(taskResponse, taskResponseMetadata)
     mapping(uint32 => bytes32) public allOrderResponses;
 
     /* CONSTANT */
+    bytes32 private constant _TYPE_HASH = keccak256("Order(address maker,address taker,address inputToken,uint256 inputAmount,address outputToken,uint256 outputAmount,uint256 expiry,uint32 targetNetworkNumber)");
     uint256 internal constant _THRESHOLD_DENOMINATOR = 100;
     address public aggregator;
-
-    error TakerMismatch();
-    error OrderExpired();
-    error InvalidSignature();
-
-    // STRUCTS
-    struct Order {
-        uint32 orderId;
-        address maker;
-        address taker;
-        address inputToken;
-        uint256 inputAmount;
-        address outputToken;
-        uint256 outputAmount;
-        uint32 quorumThresholdPercentage;
-        bytes quorumNumbers;
-        uint256 expiry;
-        uint32 targetNetworkNumber;
-        uint32 createdBlock;
-    }
-
-    // Order response is hashed and signed by operators.
-    // these signatures are aggregated and sent to the contract as response.
-    struct OrderResponse {
-        uint32 referenceOrderIndex;
-        // This is just the response that the operator has to compute by itself.
-        bool txSuccess;
-    }
-
-    // Extra information related to orderResponse, which is filled inside the contract.
-    // It thus cannot be signed by operators, so we keep it in a separate struct than OrderResponse
-    // This metadata is needed by the challenger, so we emit it in the OrderResponsed event
-    struct OrderResponseMetadata {
-        uint32 orderResponsedBlock;
-        bytes32 hashOfNonSigners;
-    }
 
     /* MODIFIERS */
     modifier onlyAggregator() {
@@ -84,7 +47,7 @@ OperatorStateRetriever
 
     constructor(
         IRegistryCoordinator _registryCoordinator
-    ) BLSSignatureChecker(_registryCoordinator) {
+    ) BLSSignatureChecker(_registryCoordinator) EIP712("Settlement", "1.0"){
     }
 
     function initialize(
@@ -97,43 +60,50 @@ OperatorStateRetriever
         aggregator = _aggregator;
     }
 
-    function fulfill(Order memory order, bytes calldata sig) public {
+    function hashOrder(Order calldata order) public view returns (bytes32) {
+        return _hashTypedDataV4(keccak256(abi.encode(
+            _TYPE_HASH,
+            order.maker,
+            order.taker,
+            order.inputToken,
+            order.inputAmount,
+            order.outputToken,
+            order.outputAmount,
+            order.expiry,
+            order.targetNetworkNumber
+        )));
+    }
+
+    function verify(Order calldata order, bytes calldata signature) public view returns (bool) {
+        address signer = hashOrder(order).recover(signature);
+        return signer == order.maker;
+    }
+
+    function fulfill(Order calldata order, uint32 quorumThresholdPercentage, bytes calldata quorumNumbers, bytes calldata sig) public {
         // check taker address
         if (order.taker != address(0) && msg.sender != order.taker) revert TakerMismatch();
         if (order.expiry < block.timestamp) revert OrderExpired();
-        // prepare data to verify signature
-        bytes32 hash = keccak256(abi.encodePacked(order.orderId, order.maker, order.taker, order.inputToken, order.inputAmount, order.outputToken, order.outputAmount, order.expiry, order.targetNetworkNumber));
-        // recover the signer's address
-        bool validSig = SignatureChecker.isValidSignatureNow(order.maker, ECDSA.toEthSignedMessageHash(hash), sig);
         // check that the signer is the maker
-        if (!validSig) revert InvalidSignature();
-        // transfer the tokens
-        IERC20(order.inputToken).transferFrom(order.maker, msg.sender, order.inputAmount);
+        if (!verify(order, sig)) revert InvalidSignature();
+        // transfer the tokens from maker to this contract
+        IERC20(order.inputToken).transferFrom(order.maker, address(this), order.inputAmount);
+        // transfer the tokens from taker to maker
         IERC20(order.outputToken).transferFrom(msg.sender, order.maker, order.outputAmount);
-        // set order taker
-        order.taker = msg.sender;
-        order.createdBlock = uint32(block.number);
-        allOrderHashes[order.orderId] = keccak256(abi.encode(order));
-        allOrderDetails[order.orderId] = order;
-        emit fulfillEvent(order, order.quorumThresholdPercentage, order.quorumNumbers);
+        allOrderExecutions[orderId] = OrderExecution(quorumThresholdPercentage, quorumNumbers, uint32(block.number));
+        allOrderHashes[orderId] = keccak256(abi.encode(order));
+        allOrderDetails[orderId] = order;
+        emit FulfillEvent(sig, orderId, order, quorumThresholdPercentage, quorumNumbers, msg.sender);
+        orderId += 1;
     }
 
     // NOTE: this function responds to existing tasks.
     function respondToFulfill(
-        Order calldata order,
+        bytes calldata quorumNumbers,
+        uint32 quorumThresholdPercentage,
+        uint32 createdBlock,
         OrderResponse calldata orderResponse,
         NonSignerStakesAndSignature memory nonSignerStakesAndSignature
     ) external onlyAggregator {
-        bytes calldata quorumNumbers = order.quorumNumbers;
-        uint32 quorumThresholdPercentage = order.quorumThresholdPercentage;
-        uint32 createdBlock = order.createdBlock;
-
-        // check that the task is valid, hasn't been responsed yet, and is being responsed in time
-        require(
-            keccak256(abi.encode(order)) ==
-            allOrderHashes[orderResponse.referenceOrderIndex],
-            "supplied order does not match the one recorded in the contract"
-        );
         // some logical checks
         require(
             allOrderResponses[orderResponse.referenceOrderIndex] == bytes32(0),
@@ -154,19 +124,6 @@ OperatorStateRetriever
             nonSignerStakesAndSignature
         );
 
-        // check that signatories own at least a threshold percentage of each quourm
-        for (uint i = 0; i < quorumNumbers.length; i++) {
-            // we don't check that the quorumThresholdPercentages are not >100 because a greater value would trivially fail the check, implying
-            // signed stake > total stake
-            require(
-                quorumStakeTotals.signedStakeForQuorum[i] *
-                _THRESHOLD_DENOMINATOR >=
-                quorumStakeTotals.totalStakeForQuorum[i] *
-                uint8(quorumThresholdPercentage),
-                "Signatories do not own at least threshold percentage of a quorum"
-            );
-        }
-
         OrderResponseMetadata memory orderResponseMetadata = OrderResponseMetadata(
             uint32(block.number),
             hashOfNonSigners
@@ -176,6 +133,9 @@ OperatorStateRetriever
             abi.encode(orderResponse, orderResponseMetadata)
         );
 
+        // get order
+        Order memory order = allOrderDetails[orderResponse.referenceOrderIndex];
+        IERC20(order.inputToken).transferFrom(address(this), orderResponse.recipient, order.inputAmount);
         // emitting event
         emit OrderRespondedEvent(orderResponse, orderResponseMetadata);
     }
