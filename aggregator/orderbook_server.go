@@ -9,7 +9,7 @@ import (
 
 func (ob *OrderBook) StartOrderBookServer() {
 	mux := http.NewServeMux()
-	http.HandleFunc("/api/v1/orders", ob.orderHandler)
+	mux.HandleFunc("/api/v1/orders", ob.orderHandler)
 	corsHandler := cors.Default().Handler(mux)
 	http.ListenAndServe(":8080", corsHandler)
 }
