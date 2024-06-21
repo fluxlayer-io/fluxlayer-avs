@@ -5,9 +5,9 @@ type Order struct {
 	Maker               string `json:"from"`
 	Taker               string `json:"receiver"`
 	InputToken          string `json:"sellToken"`
-	InputAmount         uint64 `json:"sellAmount"`
+	InputAmount         string `json:"sellAmount"`
 	OutputToken         string `json:"buyToken"`
-	OutputAmount        uint64 `json:"buyAmount"`
+	OutputAmount        string `json:"buyAmount"`
 	IsFulfilled         bool   `json:"isFulfilled"`
 	Tx                  string `json:"tx"`
 	Expiry              uint64 `json:"validTo"`
