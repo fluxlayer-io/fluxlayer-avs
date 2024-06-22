@@ -26,7 +26,6 @@ EIP712
     // mapping of order indices to all order hashes
     // when an order is fulfilled, order hash is stored here,
     // and responses need to pass the actual order,
-    uint32 orderId;
     // which is hashed onchain and checked against this mapping
     mapping(uint32 => bytes32) public allOrderHashes;
     mapping(uint32 => Order) public allOrderDetails;
@@ -35,7 +34,7 @@ EIP712
     mapping(uint32 => bytes32) public allOrderResponses;
 
     /* CONSTANT */
-    bytes32 private constant _TYPE_HASH = keccak256("Order(address maker,address taker,address inputToken,uint256 inputAmount,address outputToken,uint256 outputAmount,uint256 expiry,uint32 targetNetworkNumber)");
+    bytes32 private constant _TYPE_HASH = keccak256("Order(uint32,address maker,address taker,address inputToken,uint256 inputAmount,address outputToken,uint256 outputAmount,uint256 expiry,uint32 targetNetworkNumber)");
     uint256 internal constant _THRESHOLD_DENOMINATOR = 100;
     address public aggregator;
 
@@ -63,6 +62,7 @@ EIP712
     function hashOrder(Order calldata order) public view returns (bytes32) {
         return _hashTypedDataV4(keccak256(abi.encode(
             _TYPE_HASH,
+            order.orderId,
             order.maker,
             order.taker,
             order.inputToken,
@@ -80,6 +80,9 @@ EIP712
     }
 
     function fulfill(Order calldata order, uint32 quorumThresholdPercentage, bytes calldata quorumNumbers, bytes calldata sig) public {
+        // check if order already fulfilled
+        uint32 orderId = order.orderId;
+        if (allOrderHashes[orderId] != bytes32(0)) revert OrderFulfilled();
         // check taker address
         if (order.taker != address(0) && msg.sender != order.taker) revert TakerMismatch();
         if (order.expiry < block.timestamp) revert OrderExpired();
@@ -92,8 +95,7 @@ EIP712
         allOrderExecutions[orderId] = OrderExecution(quorumThresholdPercentage, quorumNumbers, uint32(block.number));
         allOrderHashes[orderId] = keccak256(abi.encode(order));
         allOrderDetails[orderId] = order;
-        emit FulfillEvent(sig, orderId, order, quorumThresholdPercentage, quorumNumbers, msg.sender);
-        orderId += 1;
+        emit FulfillEvent(order, quorumThresholdPercentage, quorumNumbers, msg.sender);
     }
 
     // NOTE: this function responds to existing tasks.

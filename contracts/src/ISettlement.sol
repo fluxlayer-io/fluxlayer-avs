@@ -1,8 +1,6 @@
 contract ISettlement {
     // EVENTS
     event FulfillEvent(
-        bytes sig,
-        uint32 orderId,
         Order order,
         uint32 quorumThresholdPercentage,
         bytes quorumNumbers,
@@ -14,12 +12,14 @@ contract ISettlement {
     );
 
     // ERRORS
+    error OrderFulfilled();
     error TakerMismatch();
     error OrderExpired();
     error InvalidSignature();
 
     // STRUCTS
     struct Order {
+        uint32 orderId;
         address maker;
         address taker;
         address inputToken;

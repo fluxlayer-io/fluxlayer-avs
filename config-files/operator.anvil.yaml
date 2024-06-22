@@ -44,7 +44,7 @@ enable_metrics: true
 node_api_ip_port_address: localhost:9010
 enable_node_api: true
 
-register_operator_on_startup: false
+register_operator_on_startup: true
 # address of token to deposit tokens into when registering on startup
 # addresses.erc20MockStrategy in tests/anvil/flux_layer_avs_deployment_output.json
 token_strategy_addr: 0xBa6788462D1b7E951686177f2c4f1cE1746CEB49

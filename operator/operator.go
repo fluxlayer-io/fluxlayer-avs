@@ -332,7 +332,7 @@ func (o *Operator) ProcessNewFulfillmentLog(fulfillLog *settlement.ContractSettl
 		// wait for tx to be mined
 		if txSuccess {
 			taskResponse := &settlement.ISettlementOrderResponse{
-				ReferenceOrderIndex: fulfillLog.OrderId,
+				ReferenceOrderIndex: fulfillLog.Order.OrderId,
 				Recipient:           fulfillLog.Recipient,
 			}
 			return taskResponse

@@ -12,6 +12,7 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
     Settlement public settlement;
     EIP712Utils public eip712Utils;
     uint256 pk = vm.envUint("PRIVATE_KEY");
+    uint32 orderId = 1;
     address taker = vm.addr(pk);
     address aggregator =
     address(uint160(uint256(keccak256(abi.encodePacked("aggregator")))));
@@ -55,7 +56,7 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
         outputErc20 = new ERC20Mock();
         inputToken = address(inputErc20);
         outputToken = address(outputErc20);
-        order = ISettlement.Order(maker, address(0), inputToken, inputAmount, outputToken, outputAmount, expiry, targetNetworkNumber);
+        order = ISettlement.Order(orderId, maker, address(0), inputToken, inputAmount, outputToken, outputAmount, expiry, targetNetworkNumber);
         sig = signHash(makerPk, eip712Utils.getTypedDataHash(order));
         console.log(address(settlement));
         console.logBytes(sig);

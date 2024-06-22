@@ -11,6 +11,7 @@ contract FulfillOrder is SignUtils, Utils {
     // get current pk
     uint256 pk = vm.envUint("PRIVATE_KEY");
     address sender = vm.addr(pk);
+    uint32 orderId = 1;
     address taker = address(0);
     uint256 makerPk = pk;
     address maker = vm.addr(pk);
@@ -49,6 +50,7 @@ contract FulfillOrder is SignUtils, Utils {
 
         EIP712Utils eip712Utils = new EIP712Utils("Settlement", "1.0", address(settlement));
         ISettlement.Order memory order = ISettlement.Order(
+            orderId,
             maker,
             taker,
             inputToken,

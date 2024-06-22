@@ -17,6 +17,7 @@ func (ob *OrderBook) StartOrderBookServer() {
 func (ob *OrderBook) orderHandler(w http.ResponseWriter, r *http.Request) {
 	ob.addOrderHandler(w, r)
 	ob.getOrdersHandler(w, r)
+	ob.updateOrderSigHandler(w, r)
 }
 
 func (ob *OrderBook) addOrderHandler(w http.ResponseWriter, r *http.Request) {
@@ -38,6 +39,24 @@ func (ob *OrderBook) addOrderHandler(w http.ResponseWriter, r *http.Request) {
 		orderIdStr := strconv.Itoa(int(order.OrderId))
 		// Write orderId to the response
 		w.Write([]byte(orderIdStr))
+	}
+}
+
+func (ob *OrderBook) updateOrderSigHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPut {
+		orderIdStr := r.URL.Query().Get("orderId")
+		sig := r.URL.Query().Get("signature")
+		orderId, err := strconv.Atoi(orderIdStr)
+		if err != nil {
+			http.Error(w, "Invalid orderId", http.StatusBadRequest)
+			return
+		}
+		order := ob.GetOrder(uint32(orderId))
+		if order == nil {
+			http.Error(w, "Order not found", http.StatusNotFound)
+			return
+		}
+		order.Sig = sig
 	}
 }
 

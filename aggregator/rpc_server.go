@@ -5,7 +5,6 @@ import (
 	"errors"
 	aggtypes "github.com/Layr-Labs/incredible-squaring-avs/aggregator/types"
 	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
-	"github.com/ethereum/go-ethereum/common"
 	"net/http"
 	"net/rpc"
 	"time"
@@ -59,11 +58,11 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	signedTaskResponse := taskResponse.SignedTaskResponse
 	fulfillment := taskResponse.Fulfillment
 	order := fulfillment.Order
-	agg.logger.Infof("Initializing new task for order %d, block %d", fulfillment.OrderId, fulfillment.Raw.BlockNumber)
+	agg.logger.Infof("Initializing new task for order %d, block %d", fulfillment.Order.OrderId, fulfillment.Raw.BlockNumber)
 	// TODO: set quorum number, threshold percentage, and timeout as constants
-	agg.blsAggregationService.InitializeNewTask(fulfillment.OrderId, uint32(fulfillment.Raw.BlockNumber), aggtypes.QUORUM_NUMBERS, types.QuorumThresholdPercentages{100}, time.Second*3600)
+	agg.blsAggregationService.InitializeNewTask(fulfillment.Order.OrderId, uint32(fulfillment.Raw.BlockNumber), aggtypes.QUORUM_NUMBERS, types.QuorumThresholdPercentages{100}, time.Second*3600)
 	agg.tasksMu.Lock()
-	agg.tasks[fulfillment.OrderId] = settlement.ISettlementOrder{
+	agg.tasks[fulfillment.Order.OrderId] = settlement.ISettlementOrder{
 		Maker:               order.Maker,
 		Taker:               order.Taker,
 		InputToken:          order.InputToken,
@@ -97,9 +96,7 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	if err == nil {
 		// update order status
 		agg.logger.Info("Update order fulfillment state")
-		// convert sig to hex
-		sig := common.Bytes2Hex(fulfillment.Sig)
-		agg.orderBook.FulfillOrder(sig, fulfillment.OrderId, fulfillment.Order.Taker.Hex(), fulfillment.Raw.TxHash.Hex())
+		agg.orderBook.FulfillOrder(fulfillment.Order.OrderId, fulfillment.Order.Taker.Hex(), fulfillment.Raw.TxHash.Hex())
 	}
 	return err
 }
