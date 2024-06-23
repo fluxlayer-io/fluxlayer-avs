@@ -21,7 +21,7 @@ func (ob *OrderBook) orderHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ob *OrderBook) addOrderHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodOptions || r.Method == http.MethodPost {
+	if r.Method == http.MethodPost {
 		var order Order
 		err := json.NewDecoder(r.Body).Decode(&order)
 		if err != nil {
@@ -42,21 +42,26 @@ func (ob *OrderBook) addOrderHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type UpdateOrderSig struct {
+	OrderId uint32 `json:"orderId"`
+	Sig     string `json:"signature"`
+}
+
 func (ob *OrderBook) updateOrderSigHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPut {
-		orderIdStr := r.URL.Query().Get("orderId")
-		sig := r.URL.Query().Get("signature")
-		orderId, err := strconv.Atoi(orderIdStr)
+		// parse body to get orderId and sig
+		var updateOrderSig UpdateOrderSig
+		err := json.NewDecoder(r.Body).Decode(&updateOrderSig)
 		if err != nil {
-			http.Error(w, "Invalid orderId", http.StatusBadRequest)
+			http.Error(w, "Invalid UpdateOrderSig payload", http.StatusBadRequest)
 			return
 		}
-		order := ob.GetOrder(uint32(orderId))
+		order := ob.GetOrder(updateOrderSig.OrderId)
 		if order == nil {
 			http.Error(w, "Order not found", http.StatusNotFound)
 			return
 		}
-		order.Sig = sig
+		order.Sig = updateOrderSig.Sig
 	}
 }
 
