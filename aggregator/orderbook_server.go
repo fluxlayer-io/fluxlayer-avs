@@ -2,15 +2,23 @@ package aggregator
 
 import (
 	"encoding/json"
-	"github.com/rs/cors"
 	"net/http"
 	"strconv"
+
+	"github.com/rs/cors"
 )
 
 func (ob *OrderBook) StartOrderBookServer() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/orders", ob.orderHandler)
-	corsHandler := cors.Default().Handler(mux)
+	c := cors.New(cors.Options{
+		AllowedMethods: []string{"GET", "POST", "PUT"},
+		// AllowedOrigins:   []string{"http://foo.com", "http://foo.com:8080"},
+		// AllowCredentials: true,
+		// Enable Debugging for testing, consider disabling in production
+		// Debug: true,
+	})
+	corsHandler := c.Handler(mux)
 	http.ListenAndServe(":8080", corsHandler)
 }
 
