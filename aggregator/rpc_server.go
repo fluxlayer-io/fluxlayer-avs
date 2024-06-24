@@ -41,7 +41,7 @@ func (agg *Aggregator) startServer(ctx context.Context) error {
 }
 
 type SignedTaskResponse struct {
-	TaskResponse settlement.SettlementOrderResponse
+	TaskResponse settlement.ISettlementOrderResponse
 	BlsSignature bls.Signature
 	OperatorId   types.OperatorId
 }
@@ -58,23 +58,19 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	signedTaskResponse := taskResponse.SignedTaskResponse
 	fulfillment := taskResponse.Fulfillment
 	order := fulfillment.Order
-	agg.logger.Infof("Initializing new task for order %d, block %d", order.OrderId, fulfillment.Raw.BlockNumber)
+	agg.logger.Infof("Initializing new task for order %d, block %d", fulfillment.Order.OrderId, fulfillment.Raw.BlockNumber)
 	// TODO: set quorum number, threshold percentage, and timeout as constants
 	agg.blsAggregationService.InitializeNewTask(fulfillment.Order.OrderId, uint32(fulfillment.Raw.BlockNumber), aggtypes.QUORUM_NUMBERS, types.QuorumThresholdPercentages{100}, time.Second*3600)
 	agg.tasksMu.Lock()
-	agg.tasks[order.OrderId] = settlement.SettlementOrder{
-		OrderId:                   order.OrderId,
-		Maker:                     order.Maker,
-		Taker:                     order.Taker,
-		InputToken:                order.InputToken,
-		InputAmount:               order.InputAmount,
-		OutputToken:               order.OutputToken,
-		OutputAmount:              order.OutputAmount,
-		QuorumThresholdPercentage: order.QuorumThresholdPercentage,
-		QuorumNumbers:             order.QuorumNumbers,
-		Expiry:                    order.Expiry,
-		TargetNetworkNumber:       order.TargetNetworkNumber,
-		CreatedBlock:              uint32(fulfillment.Raw.BlockNumber),
+	agg.tasks[fulfillment.Order.OrderId] = settlement.ISettlementOrder{
+		Maker:               order.Maker,
+		Taker:               order.Taker,
+		InputToken:          order.InputToken,
+		InputAmount:         order.InputAmount,
+		OutputToken:         order.OutputToken,
+		OutputAmount:        order.OutputAmount,
+		Expiry:              order.Expiry,
+		TargetNetworkNumber: order.TargetNetworkNumber,
 	}
 	agg.tasksMu.Unlock()
 	agg.logger.Infof("Received signed task response: %#v", signedTaskResponse)
@@ -86,7 +82,7 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	}
 	agg.taskResponsesMu.Lock()
 	if _, ok := agg.taskResponses[taskIndex]; !ok {
-		agg.taskResponses[taskIndex] = make(map[sdktypes.TaskResponseDigest]settlement.SettlementOrderResponse)
+		agg.taskResponses[taskIndex] = make(map[sdktypes.TaskResponseDigest]settlement.ISettlementOrderResponse)
 	}
 	if _, ok := agg.taskResponses[taskIndex][taskResponseDigest]; !ok {
 		agg.taskResponses[taskIndex][taskResponseDigest] = signedTaskResponse.TaskResponse

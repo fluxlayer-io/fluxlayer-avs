@@ -11,16 +11,16 @@ import (
 
 // this hardcodes abi.encode() for settlement.SettlementOrderResponse
 // unclear why abigen doesn't provide this out of the box...
-func AbiEncodeTaskResponse(h *settlement.SettlementOrderResponse) ([]byte, error) {
+func AbiEncodeTaskResponse(h *settlement.ISettlementOrderResponse) ([]byte, error) {
 	// The order here has to match the field ordering of cstaskmanager.IIncredibleSquaringTaskManagerTaskResponse
 	taskResponseType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{
-			Name: "referenceOrderIndex",
-			Type: "uint32",
+			Name: "recipient",
+			Type: "address",
 		},
 		{
-			Name: "txSuccess",
-			Type: "bool",
+			Name: "referenceOrderIndex",
+			Type: "uint32",
 		},
 	})
 	if err != nil {
@@ -41,7 +41,7 @@ func AbiEncodeTaskResponse(h *settlement.SettlementOrderResponse) ([]byte, error
 }
 
 // GetTaskResponseDigest returns the hash of the TaskResponse, which is what operators sign over
-func GetTaskResponseDigest(h *settlement.SettlementOrderResponse) ([32]byte, error) {
+func GetTaskResponseDigest(h *settlement.ISettlementOrderResponse) ([32]byte, error) {
 
 	encodeTaskResponseByte, err := AbiEncodeTaskResponse(h)
 	if err != nil {

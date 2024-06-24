@@ -317,7 +317,7 @@ func (o *Operator) Start(ctx context.Context) error {
 
 // Takes a ContractSettlementFulfillEvent struct as input and returns a TaskResponseHeader struct.
 // The TaskResponseHeader struct is the struct that is signed and sent to the contract as a task response.
-func (o *Operator) ProcessNewFulfillmentLog(fulfillLog *settlement.ContractSettlementFulfillEvent) *settlement.SettlementOrderResponse {
+func (o *Operator) ProcessNewFulfillmentLog(fulfillLog *settlement.ContractSettlementFulfillEvent) *settlement.ISettlementOrderResponse {
 	// convert bytes to hex
 	o.logger.Info("Received new fulfill event",
 		"txHashToBeVerified", fulfillLog.Raw.TxHash.Hex(),
@@ -327,12 +327,17 @@ func (o *Operator) ProcessNewFulfillmentLog(fulfillLog *settlement.ContractSettl
 	hasher.Write(fulfillLog.Raw.TxHash.Bytes())
 	copy(txBytes[:], hasher.Sum(nil)[:32])
 	// check if txHash is mined
-	txSuccess := o.waitForTransactionSuccess(context.Background(), fulfillLog.Raw.TxHash.Hex())
-	taskResponse := &settlement.SettlementOrderResponse{
-		ReferenceOrderIndex: fulfillLog.Order.OrderId,
-		TxSuccess:           txSuccess,
+	for {
+		txSuccess := o.waitForTransactionSuccess(context.Background(), fulfillLog.Raw.TxHash.Hex())
+		// wait for tx to be mined
+		if txSuccess {
+			taskResponse := &settlement.ISettlementOrderResponse{
+				ReferenceOrderIndex: fulfillLog.Order.OrderId,
+				Recipient:           fulfillLog.Recipient,
+			}
+			return taskResponse
+		}
 	}
-	return taskResponse
 }
 
 func (o *Operator) waitForTransactionSuccess(ctx context.Context, txHash string) bool {
@@ -355,7 +360,7 @@ func (o *Operator) waitForTransactionSuccess(ctx context.Context, txHash string)
 	}
 }
 
-func (o *Operator) SignTaskResponse(taskResponse *settlement.SettlementOrderResponse) (*aggregator.SignedTaskResponse, error) {
+func (o *Operator) SignTaskResponse(taskResponse *settlement.ISettlementOrderResponse) (*aggregator.SignedTaskResponse, error) {
 	taskResponseHash, err := core.GetTaskResponseDigest(taskResponse)
 	if err != nil {
 		o.logger.Error("Error getting task response header hash. skipping task (this is not expected and should be investigated)", "err", err)

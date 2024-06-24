@@ -68,9 +68,9 @@ type Aggregator struct {
 	avsWriter        chainio.AvsWriterer
 	// aggregation related fields
 	blsAggregationService blsagg.BlsAggregationService
-	tasks                 map[types.TaskIndex]settlement.SettlementOrder
+	tasks                 map[types.TaskIndex]settlement.ISettlementOrder
 	tasksMu               sync.RWMutex
-	taskResponses         map[types.TaskIndex]map[sdktypes.TaskResponseDigest]settlement.SettlementOrderResponse
+	taskResponses         map[types.TaskIndex]map[sdktypes.TaskResponseDigest]settlement.ISettlementOrderResponse
 	taskResponsesMu       sync.RWMutex
 	orderBook             *OrderBook
 }
@@ -113,8 +113,8 @@ func NewAggregator(c *config.Config) (*Aggregator, error) {
 		serverIpPortAddr:      c.AggregatorServerIpPortAddr,
 		avsWriter:             avsWriter,
 		blsAggregationService: blsAggregationService,
-		tasks:                 make(map[sdktypes.TaskIndex]settlement.SettlementOrder),
-		taskResponses:         make(map[types.TaskIndex]map[sdktypes.TaskResponseDigest]settlement.SettlementOrderResponse),
+		tasks:                 make(map[sdktypes.TaskIndex]settlement.ISettlementOrder),
+		taskResponses:         make(map[types.TaskIndex]map[sdktypes.TaskResponseDigest]settlement.ISettlementOrderResponse),
 		orderBook:             &OrderBook{},
 	}, nil
 }

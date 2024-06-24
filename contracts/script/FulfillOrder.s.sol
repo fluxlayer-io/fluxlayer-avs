@@ -3,25 +3,29 @@ import "forge-std/Script.sol";
 import {Utils} from "./utils/Utils.sol";
 import "../src/Settlement.sol";
 import {SignUtils} from "./utils/SignUtils.sol";
+import "./utils/EIP712Utils.sol";
 
 
 contract FulfillOrder is SignUtils, Utils {
     Settlement settlement;
-    uint32 orderId = 1;
     // get current pk
     uint256 pk = vm.envUint("PRIVATE_KEY");
-    address taker = vm.addr(pk);
-    uint256 makerPk = 1;
-    address maker = vm.addr(makerPk);
+    address sender = vm.addr(pk);
+    uint32 orderId = 1;
+    address taker = address(0);
+    uint256 makerPk = pk;
+    address maker = vm.addr(pk);
     address inputToken;
     uint256 inputAmount = 100;
     address outputToken;
-    uint256 outputAmount = 200;
+    uint256 outputAmount = 100;
+    uint32 quorumThresholdPercentage = 100;
     bytes quorumNumbers = new bytes(1);
     uint256 expiry = block.timestamp + 1000;
     uint32 targetNetworkNumber = 17000;
 
     function run() external {
+        console.log("current chain id", block.chainid);
         string memory avsDeploymentOutput = readOutput(
             "flux_layer_avs_deployment_output"
         );
@@ -44,13 +48,27 @@ contract FulfillOrder is SignUtils, Utils {
             )
         );
 
+        EIP712Utils eip712Utils = new EIP712Utils("Settlement", "1.0", address(settlement));
+        ISettlement.Order memory order = ISettlement.Order(
+            orderId,
+            maker,
+            taker,
+            inputToken,
+            inputAmount,
+            outputToken,
+            outputAmount,
+            expiry,
+            targetNetworkNumber
+        );
+
         vm.startBroadcast(pk);
         // mint inputToken, outputToken to maker, taker
         ERC20Mock(inputToken).mint(maker, inputAmount);
-        ERC20Mock(outputToken).mint(taker, outputAmount);
-        bytes memory content = abi.encodePacked(orderId, maker, address(0), inputToken, inputAmount, outputToken, outputAmount, expiry, targetNetworkNumber);
-        bytes memory sig = signContent(makerPk, content);
-        settlement.fulfill(Settlement.Order(orderId, maker, address(0), inputToken, inputAmount, outputToken, outputAmount, 100, quorumNumbers, expiry, targetNetworkNumber, 0), sig);
+        ERC20Mock(outputToken).mint(sender, outputAmount);
+        bytes memory sig = signHash(makerPk, eip712Utils.getTypedDataHash(order));
+        console.log("sig");
+        console.logBytes(sig);
+        settlement.fulfill(order, quorumThresholdPercentage, quorumNumbers, sig);
         vm.stopBroadcast();
     }
 }
