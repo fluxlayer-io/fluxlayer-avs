@@ -9,7 +9,7 @@
     "outputToken": "0xCC26717C166095Eb8C5b8D5aE0fE35D05adeDc60",
     "registryCoordinator": "0xce09BFDbA7820329d098282b08ad564Abf6C01fc",
     "registryCoordinatorImplementation": "0xE76a296e862Bf6fF9857597D78758E7c5f9F646a",
-    "settlement": "0x350DeAa5DdC87f5b32575568130Eef31BA01a654",
-    "settlementImplementation": "0x9916f642bfe3Cae29c628EB35381c72446A07D80"
+    "orderBook": "0x350DeAa5DdC87f5b32575568130Eef31BA01a654",
+    "orderBookImplementation": "0x9916f642bfe3Cae29c628EB35381c72446A07D80"
   }
 }

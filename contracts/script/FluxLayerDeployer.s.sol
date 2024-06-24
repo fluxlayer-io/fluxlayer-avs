@@ -26,7 +26,7 @@ import "forge-std/Test.sol";
 import "forge-std/Script.sol";
 import "forge-std/StdJson.sol";
 import "forge-std/console.sol";
-import "../src/Settlement.sol";
+import "../src/OrderBook.sol";
 import "../src/FluxLayerServiceManager.sol";
 
 // # To deploy and verify our contract
@@ -68,8 +68,8 @@ contract FluxLayerDeployer is Script, Utils {
     FluxLayerServiceManager public fluxLayerServiceManager;
     FluxLayerServiceManager public fluxLayerServiceManagerImplementation;
 
-    Settlement public settlement;
-    Settlement public settlementImplementation;
+    OrderBook public orderBook;
+    OrderBook public orderBookImplementation;
 
     ERC20Mock public inputToken;
     ERC20Mock public outputToken;
@@ -213,7 +213,7 @@ contract FluxLayerDeployer is Script, Utils {
                 )
             )
         );
-        settlement = Settlement(
+        orderBook = OrderBook(
             address(
                 new TransparentUpgradeableProxy(
                     address(emptyContract),
@@ -363,7 +363,7 @@ contract FluxLayerDeployer is Script, Utils {
             avsDirectory,
             registryCoordinator,
             stakeRegistry,
-            settlement
+            orderBook
         );
         // Third, upgrade the proxy contracts to use the correct implementation contracts and initialize them.
         fluxLayerProxyAdmin.upgrade(
@@ -373,15 +373,15 @@ contract FluxLayerDeployer is Script, Utils {
             address(fluxLayerServiceManagerImplementation)
         );
 
-        settlementImplementation = new Settlement(registryCoordinator);
+        orderBookImplementation = new OrderBook(registryCoordinator);
         // Third, upgrade the proxy contracts to use the correct implementation contracts and initialize them.
         fluxLayerProxyAdmin.upgradeAndCall(
             TransparentUpgradeableProxy(
-                payable(address(settlement))
+                payable(address(orderBook))
             ),
-            address(settlementImplementation),
+            address(orderBookImplementation),
             abi.encodeWithSelector(
-                settlement.initialize.selector,
+                orderBook.initialize.selector,
                 fluxLayerPauserReg,
                 fluxLayerCommunityMultisig,
                 AGGREGATOR_ADDR
@@ -425,16 +425,16 @@ contract FluxLayerDeployer is Script, Utils {
             "registryCoordinatorImplementation",
             address(registryCoordinatorImplementation)
         );
-        // settlement
+        // orderBook
         vm.serializeAddress(
             deployed_addresses,
-            "settlement",
-            address(settlement)
+            "orderBook",
+            address(orderBook)
         );
         vm.serializeAddress(
             deployed_addresses,
-            "settlementImplementation",
-            address(settlementImplementation)
+            "orderBookImplementation",
+            address(orderBookImplementation)
         );
         vm.serializeAddress(
             deployed_addresses,

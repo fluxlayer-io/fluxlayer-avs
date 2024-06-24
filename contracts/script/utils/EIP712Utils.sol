@@ -1,4 +1,6 @@
-import {ISettlement} from "../../src/ISettlement.sol";
+pragma solidity ^0.8.12;
+
+import {IOrderBook} from "../../src/IOrderBook.sol";
 import "forge-std/console.sol";
 
 contract EIP712Utils {
@@ -24,13 +26,11 @@ contract EIP712Utils {
         );
         bytes32 nameHash = keccak256(bytes(name));
         bytes32 versionHash = keccak256(bytes(version));
-        console.log("chain id");
-        console.log(block.chainid);
-        return keccak256(abi.encode(typeHash, nameHash, versionHash, block.chainid, verifyingContract));
+        return keccak256(abi.encode(typeHash, nameHash, versionHash, address(0), verifyingContract));
     }
 
     // computes the hash of a permit
-    function getStructHash(ISettlement.Order memory order)
+    function getStructHash(IOrderBook.Order memory order)
     internal
     pure
     returns (bytes32)
@@ -53,7 +53,7 @@ contract EIP712Utils {
     }
 
     // computes the hash of the fully encoded EIP-712 message for the domain, which can be used to recover the signer
-    function getTypedDataHash(ISettlement.Order memory order)
+    function getTypedDataHash(IOrderBook.Order memory order)
     public
     view
     returns (bytes32)

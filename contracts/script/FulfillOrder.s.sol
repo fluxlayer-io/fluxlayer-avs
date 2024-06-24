@@ -1,12 +1,16 @@
+pragma solidity ^0.8.12;
+
 import "../src/ERC20Mock.sol";
 import "forge-std/Script.sol";
 import {Utils} from "./utils/Utils.sol";
-import "../src/Settlement.sol";
+import "../src/OrderBook.sol";
 import {SignUtils} from "./utils/SignUtils.sol";
 import "./utils/EIP712Utils.sol";
+import {Settlement} from "../src/Settlement.sol";
 
 
 contract FulfillOrder is SignUtils, Utils {
+    OrderBook orderBook;
     Settlement settlement;
     // get current pk
     uint256 pk = vm.envUint("PRIVATE_KEY");
@@ -29,6 +33,12 @@ contract FulfillOrder is SignUtils, Utils {
         string memory avsDeploymentOutput = readOutput(
             "flux_layer_avs_deployment_output"
         );
+        orderBook = OrderBook(
+            stdJson.readAddress(
+                avsDeploymentOutput,
+                ".addresses.orderBook"
+            )
+        );
         settlement = Settlement(
             stdJson.readAddress(
                 avsDeploymentOutput,
@@ -49,7 +59,7 @@ contract FulfillOrder is SignUtils, Utils {
         );
 
         EIP712Utils eip712Utils = new EIP712Utils("Settlement", "1.0", address(settlement));
-        ISettlement.Order memory order = ISettlement.Order(
+        IOrderBook.Order memory order = IOrderBook.Order(
             orderId,
             maker,
             taker,
@@ -66,8 +76,6 @@ contract FulfillOrder is SignUtils, Utils {
         ERC20Mock(inputToken).mint(maker, inputAmount);
         ERC20Mock(outputToken).mint(sender, outputAmount);
         bytes memory sig = signHash(makerPk, eip712Utils.getTypedDataHash(order));
-        console.log("sig");
-        console.logBytes(sig);
         settlement.fulfill(order, quorumThresholdPercentage, quorumNumbers, sig);
         vm.stopBroadcast();
     }
