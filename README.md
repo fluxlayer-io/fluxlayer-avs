@@ -1,4 +1,4 @@
-## TODOs
+# Intro
 
 Assets:
 - Token A (Holesky)
@@ -10,6 +10,7 @@ Contracts:
 
 Scenario: bridging asset A from Holesky to asset B on Sepolia
 
+## TODOs
 Holesky:
 - [x] As a maker, I can create a cross-chain swap order with my signature to swap token A from Holesky to token B in Sepolia through the UI.
 - [x] Order would be created off-chain on AVS
@@ -20,3 +21,10 @@ Sepolia:
 
 Holesky:
 - [x] AVS verify the taker's fulfilment transaction and uploads proof to the Order contract; token A will be sent to the taker's address simultaneously. 
+
+## Run
+1. Run local node: `anvil --block-time 1 -f https://ethereum-holesky-rpc.publicnode.com`
+2. Deploy contract: `cd contracts
+forge script script/FluxLayerDeployer.s.sol:FluxLayerDeployer --rpc-url http://127.0.0.1:8545  --private-key ${PRIVATE_KEY} --legacy --broadcast`
+3. Start aggregator: `make start-aggregator`
+4. Update contract address and start operator: `make start-operator`
