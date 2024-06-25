@@ -1,3 +1,5 @@
+pragma solidity ^0.8.12;
+
 import "forge-std/Script.sol";
 
 contract SignUtils is Script {

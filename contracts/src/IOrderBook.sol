@@ -1,6 +1,9 @@
-contract ISettlement {
+pragma solidity ^0.8.12;
+
+contract IOrderBook {
     // EVENTS
     event FulfillEvent(
+        bytes sig,
         Order order,
         uint32 quorumThresholdPercentage,
         bytes quorumNumbers,
@@ -12,10 +15,13 @@ contract ISettlement {
     );
 
     // ERRORS
+    error OrderExists();
+    error InvalidOrder();
     error OrderFulfilled();
     error TakerMismatch();
     error OrderExpired();
     error InvalidSignature();
+    error InvalidChain();
 
     // STRUCTS
     struct Order {

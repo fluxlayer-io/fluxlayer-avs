@@ -1,5 +1,5 @@
-import "../src/Settlement.sol";
-import "../src/ISettlement.sol";
+import "../src/OrderBook.sol";
+import "../src/IOrderBook.sol";
 import "../src/ERC20Mock.sol";
 import "forge-std/Test.sol";
 import "../lib/eigenlayer-middleware/test/utils/BLSMockAVSDeployer.sol";
@@ -7,8 +7,10 @@ import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transpa
 import "../script/utils/SignUtils.sol";
 import "../script/utils/EIP712Utils.sol";
 import "forge-std/console.sol";
+import "../src/Settlement.sol";
 
 contract SettlementTest is BLSMockAVSDeployer, SignUtils {
+    OrderBook public orderBook;
     Settlement public settlement;
     EIP712Utils public eip712Utils;
     uint256 pk = vm.envUint("PRIVATE_KEY");
@@ -24,8 +26,9 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
     address outputToken;
     uint256 outputAmount = 100;
     uint256 expiry = block.timestamp + 1000;
-    uint32 targetNetworkNumber = 17000;
-    ISettlement.Order order;
+    uint32 holesky = 17000;
+    uint32 sepolia = 11155111;
+    IOrderBook.Order order;
     uint32 quorumThresholdPercentage = 100;
     bytes quorumNumbers = new bytes(0);
     bytes sig;
@@ -35,15 +38,18 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
     ERC20Mock public outputErc20;
 
     function setUp() public {
+        // set chain id
+        vm.chainId(holesky);
+
         _setUpBLSMockAVSDeployer();
-        Settlement settlementImp = new Settlement(IRegistryCoordinator(address(registryCoordinator)));
-        settlement = Settlement(
+        OrderBook orderBookImp = new OrderBook(IRegistryCoordinator(address(registryCoordinator)));
+        orderBook = OrderBook(
             address(
                 new TransparentUpgradeableProxy(
-                    address(settlementImp),
+                    address(orderBookImp),
                     address(proxyAdmin),
                     abi.encodeWithSelector(
-                        settlement.initialize.selector,
+                        orderBook.initialize.selector,
                         pauserRegistry,
                         registryCoordinatorOwner,
                         aggregator
@@ -51,22 +57,28 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
                 )
             )
         );
-        eip712Utils = new EIP712Utils("Settlement", "1.0", address(settlement));
+        eip712Utils = new EIP712Utils("OrderBook", "1.0", address(orderBook));
         inputErc20 = new ERC20Mock();
         outputErc20 = new ERC20Mock();
         inputToken = address(inputErc20);
         outputToken = address(outputErc20);
-        order = ISettlement.Order(orderId, maker, address(0), inputToken, inputAmount, outputToken, outputAmount, expiry, targetNetworkNumber);
+        order = IOrderBook.Order(orderId, maker, address(0), inputToken, inputAmount, outputToken, outputAmount, expiry, sepolia);
         sig = signHash(makerPk, eip712Utils.getTypedDataHash(order));
-        console.log(address(settlement));
         console.logBytes(sig);
         invalidSig = signHash(fakeMakerPk, eip712Utils.getTypedDataHash(order));
         // mint mock tokens to maker and taker
         inputErc20.mint(maker, inputAmount);
         outputErc20.mint(taker, outputAmount);
+        // taker create order
+        vm.startPrank(taker);
+        orderBook.createOrder(order, sig);
+        vm.stopPrank();
+        vm.chainId(sepolia);
+        settlement = new Settlement(address(orderBook));
     }
 
     function testFulfillRevertWhenTakerIsNotMsgSender() public {
+        vm.chainId(sepolia);
         // expect revert
         vm.expectRevert();
         // set wrong maker
@@ -76,6 +88,7 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
     }
 
     function testFulFillRevertWhenExpiry() public {
+        vm.chainId(sepolia);
         vm.expectRevert();
         // set invalid expiry
         uint32 invalidExpiry = 0;
@@ -84,11 +97,13 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
     }
 
     function testFulFillRevertWhenInvalidSig() public {
+        vm.chainId(sepolia);
         vm.expectRevert();
         settlement.fulfill(order, quorumThresholdPercentage, quorumNumbers, invalidSig);
     }
 
     function testFulFill() public {
+        vm.chainId(sepolia);
         vm.prank(taker);
         settlement.fulfill(order, quorumThresholdPercentage, quorumNumbers, sig);
     }

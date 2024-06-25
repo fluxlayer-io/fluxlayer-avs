@@ -3,7 +3,7 @@ pragma solidity ^0.8.9;
 
 import "@eigenlayer/contracts/libraries/BytesLib.sol";
 import "@eigenlayer-middleware/src/ServiceManagerBase.sol";
-import "./Settlement.sol";
+import "./OrderBook.sol";
 
 /**
  * @title Primary entrypoint for procuring services from IncredibleSquaring.
@@ -12,14 +12,14 @@ import "./Settlement.sol";
 contract FluxLayerServiceManager is ServiceManagerBase {
     using BytesLib for bytes;
 
-    Settlement
-        public immutable settlement;
+    OrderBook
+        public immutable orderBook;
 
     /// @notice when applied to a function, ensures that the function is only callable by the `registryCoordinator`.
     modifier onlySettlement() {
         require(
-            msg.sender == address(settlement),
-            "onlySettlement: not from settlement"
+            msg.sender == address(orderBook),
+            "onlyOrderBook: not from orderBook"
         );
         _;
     }
@@ -28,7 +28,7 @@ contract FluxLayerServiceManager is ServiceManagerBase {
         IAVSDirectory _avsDirectory,
         IRegistryCoordinator _registryCoordinator,
         IStakeRegistry _stakeRegistry,
-        Settlement _settlement
+        OrderBook _orderBook
     )
         ServiceManagerBase(
             _avsDirectory,
@@ -37,7 +37,7 @@ contract FluxLayerServiceManager is ServiceManagerBase {
             _stakeRegistry
         )
     {
-        settlement = _settlement;
+        orderBook = _orderBook;
     }
 
     /// @notice Called in the event of challenge resolution, in order to forward a call to the Slasher, which 'freezes' the `operator`.
