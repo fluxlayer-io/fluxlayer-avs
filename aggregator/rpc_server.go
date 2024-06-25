@@ -60,6 +60,18 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	order := fulfillment.Order
 	agg.logger.Infof("Initializing new task for order %d, block %d", fulfillment.Order.OrderId, fulfillment.Raw.BlockNumber)
 	// TODO: set quorum number, threshold percentage, and timeout as constants
+<<<<<<< HEAD
+	// check order sig from event with sig in db
+	sig := "0x" + common.Bytes2Hex(fulfillment.Sig)
+	o := agg.orderBook.GetOrder(fulfillment.Order.OrderId)
+	if o == nil {
+		return errors.New("off-chain order does not exist")
+	}
+	if sig != o.Sig {
+		return fmt.Errorf("order signature does not match, got=[%s], expected=[%s]", sig, o.Sig)
+	}
+=======
+>>>>>>> parent of abe37d7 (refactor: contract && avs client)
 	agg.blsAggregationService.InitializeNewTask(fulfillment.Order.OrderId, uint32(fulfillment.Raw.BlockNumber), aggtypes.QUORUM_NUMBERS, types.QuorumThresholdPercentages{100}, time.Second*3600)
 	agg.tasksMu.Lock()
 	agg.tasks[fulfillment.Order.OrderId] = settlement.ISettlementOrder{
