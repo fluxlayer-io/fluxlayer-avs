@@ -29,15 +29,20 @@ type Config struct {
 	EigenMetricsIpPortAddress string
 	// we need the url for the eigensdk currently... eventually standardize api so as to
 	// only take an ethclient or an rpcUrl (and build the ethclient at each constructor site)
-	EthHttpRpcUrl                             string
-	EthWsRpcUrl                               string
-	EthHttpClient                             eth.Client
-	EthWsClient                               eth.Client
-	OperatorStateRetrieverAddr                common.Address
-	IncredibleSquaringRegistryCoordinatorAddr common.Address
-	SettlementAddr                            common.Address
-	AggregatorServerIpPortAddr                string
-	RegisterOperatorOnStartup                 bool
+	EthHttpRpcUrl                    string
+	EthWsRpcUrl                      string
+	EthHttpRpcUrl2                   string
+	EthWsRpcUrl2                     string
+	EthHttpClient                    eth.Client
+	EthWsClient                      eth.Client
+	EthHttpClient2                   eth.Client
+	EthWsClient2                     eth.Client
+	OperatorStateRetrieverAddr       common.Address
+	FluxLayerRegistryCoordinatorAddr common.Address
+	OrderBookAddr                    common.Address
+	SettlementAddr                   common.Address
+	AggregatorServerIpPortAddr       string
+	RegisterOperatorOnStartup        bool
 	// json:"-" skips this field when marshaling (only used for logging to stdout), since SignerFn doesnt implement marshalJson
 	SignerFn          signerv2.SignerFn `json:"-"`
 	TxMgr             txmgr.TxManager
@@ -49,17 +54,20 @@ type ConfigRaw struct {
 	Environment                sdklogging.LogLevel `yaml:"environment"`
 	EthRpcUrl                  string              `yaml:"eth_rpc_url"`
 	EthWsUrl                   string              `yaml:"eth_ws_url"`
+	EthRpcUrl2                 string              `yaml:"eth_rpc_url2"`
+	EthWsUrl2                  string              `yaml:"eth_ws_url2"`
 	AggregatorServerIpPortAddr string              `yaml:"aggregator_server_ip_port_address"`
 	RegisterOperatorOnStartup  bool                `yaml:"register_operator_on_startup"`
 }
 
-// These are read from CredibleSquaringDeploymentFileFlag
-type IncredibleSquaringDeploymentRaw struct {
-	Addresses IncredibleSquaringContractsRaw `json:"addresses"`
+// These are read from FluxLayerDeploymentFileFlag
+type FluxLayerDeploymentRaw struct {
+	Addresses FluxLayerContractsRaw `json:"addresses"`
 }
-type IncredibleSquaringContractsRaw struct {
+type FluxLayerContractsRaw struct {
 	RegistryCoordinatorAddr    string `json:"registryCoordinator"`
 	OperatorStateRetrieverAddr string `json:"operatorStateRetriever"`
+	OrderBookAddr              string `json:"orderBook"`
 	SettlementAddr             string `json:"settlement"`
 }
 
@@ -74,12 +82,12 @@ func NewConfig(ctx *cli.Context) (*Config, error) {
 		sdkutils.ReadYamlConfig(configFilePath, &configRaw)
 	}
 
-	var credibleSquaringDeploymentRaw IncredibleSquaringDeploymentRaw
-	credibleSquaringDeploymentFilePath := ctx.GlobalString(CredibleSquaringDeploymentFileFlag.Name)
-	if _, err := os.Stat(credibleSquaringDeploymentFilePath); errors.Is(err, os.ErrNotExist) {
-		panic("Path " + credibleSquaringDeploymentFilePath + " does not exist")
+	var fluxLayerDeploymentRaw FluxLayerDeploymentRaw
+	fluxLayerDeploymentFilePath := ctx.GlobalString(FluxLayerDeploymentFileFlag.Name)
+	if _, err := os.Stat(fluxLayerDeploymentFilePath); errors.Is(err, os.ErrNotExist) {
+		panic("Path " + fluxLayerDeploymentFilePath + " does not exist")
 	}
-	sdkutils.ReadJsonConfig(credibleSquaringDeploymentFilePath, &credibleSquaringDeploymentRaw)
+	sdkutils.ReadJsonConfig(fluxLayerDeploymentFilePath, &fluxLayerDeploymentRaw)
 
 	logger, err := sdklogging.NewZapLogger(configRaw.Environment)
 	if err != nil {
@@ -95,6 +103,18 @@ func NewConfig(ctx *cli.Context) (*Config, error) {
 	ethWsClient, err := eth.NewClient(configRaw.EthWsUrl)
 	if err != nil {
 		logger.Errorf("Cannot create ws ethclient", "err", err)
+		return nil, err
+	}
+
+	ethRpcClient2, err := eth.NewClient(configRaw.EthRpcUrl2)
+	if err != nil {
+		logger.Errorf("Cannot create http ethclient2", "err", err)
+		return nil, err
+	}
+
+	ethWsClient2, err := eth.NewClient(configRaw.EthWsUrl2)
+	if err != nil {
+		logger.Errorf("Cannot create ws ethclient2", "err", err)
 		return nil, err
 	}
 
@@ -133,20 +153,25 @@ func NewConfig(ctx *cli.Context) (*Config, error) {
 	txMgr := txmgr.NewSimpleTxManager(skWallet, ethRpcClient, logger, aggregatorAddr)
 
 	config := &Config{
-		EcdsaPrivateKey:            ecdsaPrivateKey,
-		Logger:                     logger,
-		EthWsRpcUrl:                configRaw.EthWsUrl,
-		EthHttpRpcUrl:              configRaw.EthRpcUrl,
-		EthHttpClient:              ethRpcClient,
-		EthWsClient:                ethWsClient,
-		OperatorStateRetrieverAddr: common.HexToAddress(credibleSquaringDeploymentRaw.Addresses.OperatorStateRetrieverAddr),
-		IncredibleSquaringRegistryCoordinatorAddr: common.HexToAddress(credibleSquaringDeploymentRaw.Addresses.RegistryCoordinatorAddr),
-		SettlementAddr:             common.HexToAddress(credibleSquaringDeploymentRaw.Addresses.SettlementAddr),
-		AggregatorServerIpPortAddr: configRaw.AggregatorServerIpPortAddr,
-		RegisterOperatorOnStartup:  configRaw.RegisterOperatorOnStartup,
-		SignerFn:                   signerV2,
-		TxMgr:                      txMgr,
-		AggregatorAddress:          aggregatorAddr,
+		EcdsaPrivateKey:                  ecdsaPrivateKey,
+		Logger:                           logger,
+		EthWsRpcUrl:                      configRaw.EthWsUrl,
+		EthHttpRpcUrl:                    configRaw.EthRpcUrl,
+		EthWsRpcUrl2:                     configRaw.EthWsUrl2,
+		EthHttpRpcUrl2:                   configRaw.EthRpcUrl2,
+		EthHttpClient:                    ethRpcClient,
+		EthWsClient:                      ethWsClient,
+		EthHttpClient2:                   ethRpcClient2,
+		EthWsClient2:                     ethWsClient2,
+		OperatorStateRetrieverAddr:       common.HexToAddress(fluxLayerDeploymentRaw.Addresses.OperatorStateRetrieverAddr),
+		FluxLayerRegistryCoordinatorAddr: common.HexToAddress(fluxLayerDeploymentRaw.Addresses.RegistryCoordinatorAddr),
+		OrderBookAddr:                    common.HexToAddress(fluxLayerDeploymentRaw.Addresses.OrderBookAddr),
+		SettlementAddr:                   common.HexToAddress(fluxLayerDeploymentRaw.Addresses.SettlementAddr),
+		AggregatorServerIpPortAddr:       configRaw.AggregatorServerIpPortAddr,
+		RegisterOperatorOnStartup:        configRaw.RegisterOperatorOnStartup,
+		SignerFn:                         signerV2,
+		TxMgr:                            txMgr,
+		AggregatorAddress:                aggregatorAddr,
 	}
 	config.validate()
 	return config, nil
@@ -157,8 +182,8 @@ func (c *Config) validate() {
 	if c.OperatorStateRetrieverAddr == common.HexToAddress("") {
 		panic("Config: BLSOperatorStateRetrieverAddr is required")
 	}
-	if c.IncredibleSquaringRegistryCoordinatorAddr == common.HexToAddress("") {
-		panic("Config: IncredibleSquaringRegistryCoordinatorAddr is required")
+	if c.FluxLayerRegistryCoordinatorAddr == common.HexToAddress("") {
+		panic("Config: FluxLayerRegistryCoordinatorAddr is required")
 	}
 }
 
@@ -169,7 +194,7 @@ var (
 		Required: true,
 		Usage:    "Load configuration from `FILE`",
 	}
-	CredibleSquaringDeploymentFileFlag = cli.StringFlag{
+	FluxLayerDeploymentFileFlag = cli.StringFlag{
 		Name:     "flux-layer-deployment",
 		Required: true,
 		Usage:    "Load flux layer contract addresses from `FILE`",
@@ -185,7 +210,7 @@ var (
 
 var requiredFlags = []cli.Flag{
 	ConfigFileFlag,
-	CredibleSquaringDeploymentFileFlag,
+	FluxLayerDeploymentFileFlag,
 	EcdsaPrivateKeyFlag,
 }
 

@@ -8,8 +8,9 @@ import {OrderEIP712} from "./OrderEIP712.sol";
 contract Settlement is IOrderBook, OrderEIP712 {
     mapping(uint32 => OrderExecution) public allOrderExecutions;
     constructor(
-        address orderBookAddr
-    ) OrderEIP712("OrderBook", "1.0", orderBookAddr){
+        address orderBookAddr,
+        uint32 signChainId
+    ) OrderEIP712("OrderBook", "1.0", signChainId, orderBookAddr){
     }
 
     function fulfill(Order memory order, uint32 quorumThresholdPercentage, bytes calldata quorumNumbers, bytes calldata sig) public {

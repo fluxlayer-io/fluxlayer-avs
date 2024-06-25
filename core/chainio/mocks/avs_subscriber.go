@@ -9,6 +9,7 @@
 package mocks
 
 import (
+	orderbook "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/OrderBook"
 	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 	reflect "reflect"
 
@@ -41,10 +42,10 @@ func (m *MockAvsSubscriberer) EXPECT() *MockAvsSubscribererMockRecorder {
 }
 
 // ParseTaskResponded mocks base method.
-func (m *MockAvsSubscriberer) ParseTaskResponded(arg0 types.Log) (*settlement.ContractSettlementOrderRespondedEvent, error) {
+func (m *MockAvsSubscriberer) ParseTaskResponded(arg0 types.Log) (*orderbook.ContractOrderBookOrderRespondedEvent, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ParseTaskResponded", arg0)
-	ret0, _ := ret[0].(*settlement.ContractSettlementOrderRespondedEvent)
+	ret0, _ := ret[0].(*orderbook.ContractOrderBookOrderRespondedEvent)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -70,7 +71,7 @@ func (mr *MockAvsSubscribererMockRecorder) SubscribeToNewTasks(arg0 any) *gomock
 }
 
 // SubscribeToTaskResponses mocks base method.
-func (m *MockAvsSubscriberer) SubscribeToTaskResponses(arg0 chan *settlement.ContractSettlementOrderRespondedEvent) event.Subscription {
+func (m *MockAvsSubscriberer) SubscribeToTaskResponses(arg0 chan *orderbook.ContractOrderBookOrderRespondedEvent) event.Subscription {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubscribeToTaskResponses", arg0)
 	ret0, _ := ret[0].(event.Subscription)

@@ -1,6 +1,7 @@
 package chainio
 
 import (
+	orderbook "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/OrderBook"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -14,8 +15,8 @@ import (
 )
 
 type AvsSubscriberer interface {
-	SubscribeToTaskResponses(taskResponseLogs chan *settlement.ContractSettlementOrderRespondedEvent) event.Subscription
-	ParseTaskResponded(rawLog types.Log) (*settlement.ContractSettlementOrderRespondedEvent, error)
+	SubscribeToTaskResponses(taskResponseLogs chan *orderbook.ContractOrderBookOrderRespondedEvent) event.Subscription
+	ParseTaskResponded(rawLog types.Log) (*orderbook.ContractOrderBookOrderRespondedEvent, error)
 	SubscribeToFulfillment(fulfillmentLogs chan *settlement.ContractSettlementFulfillEvent) event.Subscription
 }
 
@@ -30,14 +31,16 @@ type AvsSubscriber struct {
 
 func BuildAvsSubscriberFromConfig(config *config.Config) (*AvsSubscriber, error) {
 	return BuildAvsSubscriber(
+		config.OrderBookAddr,
 		config.SettlementAddr,
 		config.EthWsClient,
+		config.EthWsClient2,
 		config.Logger,
 	)
 }
 
-func BuildAvsSubscriber(settlementAddr gethcommon.Address, ethclient eth.Client, logger sdklogging.Logger) (*AvsSubscriber, error) {
-	avsContractBindings, err := NewAvsManagersBindings(settlementAddr, ethclient, logger)
+func BuildAvsSubscriber(orderBookAddr, settlementAddr gethcommon.Address, ethClient, ethClient2 eth.Client, logger sdklogging.Logger) (*AvsSubscriber, error) {
+	avsContractBindings, err := NewAvsManagersBindings(orderBookAddr, settlementAddr, ethClient, ethClient2, logger)
 	if err != nil {
 		logger.Errorf("Failed to create contract bindings", "err", err)
 		return nil, err
@@ -52,8 +55,8 @@ func NewAvsSubscriber(avsContractBindings *AvsManagersBindings, logger sdkloggin
 	}
 }
 
-func (s *AvsSubscriber) SubscribeToTaskResponses(taskResponseChan chan *settlement.ContractSettlementOrderRespondedEvent) event.Subscription {
-	sub, err := s.AvsContractBindings.Settlement.WatchOrderRespondedEvent(
+func (s *AvsSubscriber) SubscribeToTaskResponses(taskResponseChan chan *orderbook.ContractOrderBookOrderRespondedEvent) event.Subscription {
+	sub, err := s.AvsContractBindings.OrderBook.WatchOrderRespondedEvent(
 		&bind.WatchOpts{}, taskResponseChan,
 	)
 	if err != nil {
@@ -63,8 +66,8 @@ func (s *AvsSubscriber) SubscribeToTaskResponses(taskResponseChan chan *settleme
 	return sub
 }
 
-func (s *AvsSubscriber) ParseTaskResponded(rawLog types.Log) (*settlement.ContractSettlementOrderRespondedEvent, error) {
-	return s.AvsContractBindings.Settlement.ContractSettlementFilterer.ParseOrderRespondedEvent(rawLog)
+func (s *AvsSubscriber) ParseTaskResponded(rawLog types.Log) (*orderbook.ContractOrderBookOrderRespondedEvent, error) {
+	return s.AvsContractBindings.OrderBook.ContractOrderBookFilterer.ParseOrderRespondedEvent(rawLog)
 }
 
 func (s *AvsSubscriber) SubscribeToFulfillment(fulfillmentLogs chan *settlement.ContractSettlementFulfillEvent) event.Subscription {

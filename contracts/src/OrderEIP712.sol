@@ -14,13 +14,15 @@ contract OrderEIP712 {
     bytes32 private immutable _HASHED_NAME;
     bytes32 private immutable _HASHED_VERSION;
     bytes32 private immutable _ORDER_TYPE_HASH = keccak256("Order(uint32,address maker,address taker,address inputToken,uint256 inputAmount,address outputToken,uint256 outputAmount,uint256 expiry,uint32 targetNetworkNumber)");
+    uint32 private immutable _CHAIN_ID;
     address _ORDERBOOK_ADDR;
 
-    constructor(string memory name, string memory version, address orderBookAddr) {
+    constructor(string memory name, string memory version, uint32 chainId, address orderBookAddr) {
         bytes32 hashedName = keccak256(bytes(name));
         bytes32 hashedVersion = keccak256(bytes(version));
         _HASHED_NAME = hashedName;
         _HASHED_VERSION = hashedVersion;
+        _CHAIN_ID = chainId;
         if (orderBookAddr != address(0)) {
             _ORDERBOOK_ADDR = orderBookAddr;
         }
@@ -40,7 +42,7 @@ contract OrderEIP712 {
             _DOMAIN_TYPE_HASH,
             _HASHED_NAME,
             _HASHED_VERSION,
-            address(0), // set chain id to 0
+            _CHAIN_ID,
             _getOrderAddr()
         ));
     }

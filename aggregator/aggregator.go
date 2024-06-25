@@ -3,7 +3,7 @@ package aggregator
 import (
 	"context"
 	"github.com/Layr-Labs/eigensdk-go/types"
-	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
+	orderbook "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/OrderBook"
 	"github.com/Layr-Labs/incredible-squaring-avs/core"
 	"sync"
 	"time"
@@ -68,9 +68,9 @@ type Aggregator struct {
 	avsWriter        chainio.AvsWriterer
 	// aggregation related fields
 	blsAggregationService blsagg.BlsAggregationService
-	tasks                 map[types.TaskIndex]settlement.ISettlementOrder
+	tasks                 map[types.TaskIndex]orderbook.IOrderBookOrder
 	tasksMu               sync.RWMutex
-	taskResponses         map[types.TaskIndex]map[sdktypes.TaskResponseDigest]settlement.ISettlementOrderResponse
+	taskResponses         map[types.TaskIndex]map[sdktypes.TaskResponseDigest]orderbook.IOrderBookOrderResponse
 	taskResponsesMu       sync.RWMutex
 	orderBook             *OrderBook
 }
@@ -93,7 +93,7 @@ func NewAggregator(c *config.Config) (*Aggregator, error) {
 	chainioConfig := sdkclients.BuildAllConfig{
 		EthHttpUrl:                 c.EthHttpRpcUrl,
 		EthWsUrl:                   c.EthWsRpcUrl,
-		RegistryCoordinatorAddr:    c.IncredibleSquaringRegistryCoordinatorAddr.String(),
+		RegistryCoordinatorAddr:    c.FluxLayerRegistryCoordinatorAddr.String(),
 		OperatorStateRetrieverAddr: c.OperatorStateRetrieverAddr.String(),
 		AvsName:                    avsName,
 		PromMetricsIpPortAddress:   ":9099",
@@ -113,8 +113,8 @@ func NewAggregator(c *config.Config) (*Aggregator, error) {
 		serverIpPortAddr:      c.AggregatorServerIpPortAddr,
 		avsWriter:             avsWriter,
 		blsAggregationService: blsAggregationService,
-		tasks:                 make(map[sdktypes.TaskIndex]settlement.ISettlementOrder),
-		taskResponses:         make(map[types.TaskIndex]map[sdktypes.TaskResponseDigest]settlement.ISettlementOrderResponse),
+		tasks:                 make(map[sdktypes.TaskIndex]orderbook.IOrderBookOrder),
+		taskResponses:         make(map[types.TaskIndex]map[sdktypes.TaskResponseDigest]orderbook.IOrderBookOrderResponse),
 		orderBook:             &OrderBook{},
 	}, nil
 }
@@ -145,15 +145,15 @@ func (agg *Aggregator) sendAggregatedResponseToContract(blsAggServiceResp blsagg
 		// panicing to help with debugging (fail fast), but we shouldn't panic if we run this in production
 		panic(blsAggServiceResp.Err)
 	}
-	nonSignerPubkeys := []settlement.BN254G1Point{}
+	nonSignerPubkeys := []orderbook.BN254G1Point{}
 	for _, nonSignerPubkey := range blsAggServiceResp.NonSignersPubkeysG1 {
 		nonSignerPubkeys = append(nonSignerPubkeys, core.ConvertToBN254G1Point(nonSignerPubkey))
 	}
-	quorumApks := []settlement.BN254G1Point{}
+	quorumApks := []orderbook.BN254G1Point{}
 	for _, quorumApk := range blsAggServiceResp.QuorumApksG1 {
 		quorumApks = append(quorumApks, core.ConvertToBN254G1Point(quorumApk))
 	}
-	nonSignerStakesAndSignature := settlement.IBLSSignatureCheckerNonSignerStakesAndSignature{
+	nonSignerStakesAndSignature := orderbook.IBLSSignatureCheckerNonSignerStakesAndSignature{
 		NonSignerPubkeys:             nonSignerPubkeys,
 		QuorumApks:                   quorumApks,
 		ApkG2:                        core.ConvertToBN254G2Point(blsAggServiceResp.SignersApkG2),

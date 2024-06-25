@@ -25,7 +25,7 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
     uint256 inputAmount = 100;
     address outputToken;
     uint256 outputAmount = 100;
-    uint256 expiry = block.timestamp + 1000;
+    uint256 expiry = 9999999999;
     uint32 holesky = 17000;
     uint32 sepolia = 11155111;
     IOrderBook.Order order;
@@ -36,13 +36,11 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
 
     ERC20Mock public inputErc20;
     ERC20Mock public outputErc20;
+    uint32 signChainId = 17000;
 
     function setUp() public {
-        // set chain id
-        vm.chainId(holesky);
-
         _setUpBLSMockAVSDeployer();
-        OrderBook orderBookImp = new OrderBook(IRegistryCoordinator(address(registryCoordinator)));
+        OrderBook orderBookImp = new OrderBook(IRegistryCoordinator(address(registryCoordinator)), signChainId);
         orderBook = OrderBook(
             address(
                 new TransparentUpgradeableProxy(
@@ -57,7 +55,7 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
                 )
             )
         );
-        eip712Utils = new EIP712Utils("OrderBook", "1.0", address(orderBook));
+        eip712Utils = new EIP712Utils("OrderBook", "1.0", signChainId, address(orderBook));
         inputErc20 = new ERC20Mock();
         outputErc20 = new ERC20Mock();
         inputToken = address(inputErc20);
@@ -73,12 +71,11 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
         vm.startPrank(taker);
         orderBook.createOrder(order, sig);
         vm.stopPrank();
-        vm.chainId(sepolia);
-        settlement = new Settlement(address(orderBook));
+        vm.createSelectFork("sepolia_fork");
+        settlement = new Settlement(address(orderBook), signChainId);
     }
 
     function testFulfillRevertWhenTakerIsNotMsgSender() public {
-        vm.chainId(sepolia);
         // expect revert
         vm.expectRevert();
         // set wrong maker
@@ -88,7 +85,6 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
     }
 
     function testFulFillRevertWhenExpiry() public {
-        vm.chainId(sepolia);
         vm.expectRevert();
         // set invalid expiry
         uint32 invalidExpiry = 0;
@@ -97,13 +93,11 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
     }
 
     function testFulFillRevertWhenInvalidSig() public {
-        vm.chainId(sepolia);
         vm.expectRevert();
         settlement.fulfill(order, quorumThresholdPercentage, quorumNumbers, invalidSig);
     }
 
     function testFulFill() public {
-        vm.chainId(sepolia);
         vm.prank(taker);
         settlement.fulfill(order, quorumThresholdPercentage, quorumNumbers, sig);
     }

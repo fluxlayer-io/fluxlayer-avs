@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
+	orderbook "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/OrderBook"
 	"math/big"
 
 	ethclient "github.com/Layr-Labs/eigensdk-go/chainio/clients/eth"
@@ -23,9 +23,9 @@ type Challenger struct {
 	avsReader        chainio.AvsReaderer
 	avsWriter        chainio.AvsWriterer
 	avsSubscriber    chainio.AvsSubscriberer
-	tasks            map[uint32]settlement.SettlementOrder
+	tasks            map[uint32]orderbook.IOrderBookOrder
 	taskResponses    map[uint32]types.TaskResponseData
-	taskResponseChan chan *settlement.ContractSettlementOrderRespondedEvent
+	taskResponseChan chan *orderbook.ContractOrderBookOrderRespondedEvent
 }
 
 func NewChallenger(c *config.Config) (*Challenger, error) {
@@ -52,9 +52,9 @@ func NewChallenger(c *config.Config) (*Challenger, error) {
 		avsWriter:        avsWriter,
 		avsReader:        avsReader,
 		avsSubscriber:    avsSubscriber,
-		tasks:            make(map[uint32]settlement.SettlementOrder),
+		tasks:            make(map[uint32]orderbook.IOrderBookOrder),
 		taskResponses:    make(map[uint32]types.TaskResponseData),
-		taskResponseChan: make(chan *settlement.ContractSettlementOrderRespondedEvent),
+		taskResponseChan: make(chan *orderbook.ContractOrderBookOrderRespondedEvent),
 	}
 
 	return challenger, nil
@@ -90,12 +90,11 @@ func (c *Challenger) Start(ctx context.Context) error {
 
 }
 
-func (c *Challenger) processTaskResponseLog(taskResponseLog *settlement.ContractSettlementOrderRespondedEvent) uint32 {
+func (c *Challenger) processTaskResponseLog(taskResponseLog *orderbook.ContractOrderBookOrderRespondedEvent) uint32 {
 	taskResponseRawLog, err := c.avsSubscriber.ParseTaskResponded(taskResponseLog.Raw)
 	if err != nil {
 		c.logger.Error("Error parsing task response. skipping task (this is probably bad and should be investigated)", "err", err)
 	}
-
 	// get the inputs necessary for raising a challenge
 	nonSigningOperatorPubKeys := c.getNonSigningOperatorPubKeys(taskResponseLog)
 	taskResponseData := types.TaskResponseData{
@@ -112,7 +111,7 @@ func (c *Challenger) callChallengeModule(taskIndex uint32) error {
 	return errors.New("not implemented")
 }
 
-func (c *Challenger) getNonSigningOperatorPubKeys(vLog *settlement.ContractSettlementOrderRespondedEvent) []settlement.BN254G1Point {
+func (c *Challenger) getNonSigningOperatorPubKeys(vLog *orderbook.ContractOrderBookOrderRespondedEvent) []orderbook.BN254G1Point {
 	c.logger.Info("vLog.Raw is", "vLog.Raw", vLog.Raw)
 
 	// get the nonSignerStakesAndSignature
@@ -168,9 +167,9 @@ func (c *Challenger) getNonSigningOperatorPubKeys(vLog *settlement.ContractSettl
 	})
 
 	// get pubkeys of non-signing operators and submit them to the contract
-	nonSigningOperatorPubKeys := make([]settlement.BN254G1Point, len(nonSignerStakesAndSignatureInput.NonSignerPubkeys))
+	nonSigningOperatorPubKeys := make([]orderbook.BN254G1Point, len(nonSignerStakesAndSignatureInput.NonSignerPubkeys))
 	for i, pubkey := range nonSignerStakesAndSignatureInput.NonSignerPubkeys {
-		nonSigningOperatorPubKeys[i] = settlement.BN254G1Point{
+		nonSigningOperatorPubKeys[i] = orderbook.BN254G1Point{
 			X: pubkey.X,
 			Y: pubkey.Y,
 		}

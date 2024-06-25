@@ -110,6 +110,12 @@ func plugin(ctx *cli.Context) {
 		fmt.Println(err)
 		return
 	}
+	ethHttpClient2, err := eth.NewClient(avsConfig.EthRpcUrl2)
+	if err != nil {
+		fmt.Println("can't connect to eth client2")
+		fmt.Println(err)
+		return
+	}
 	chainID, err := ethHttpClient.ChainID(goCtx)
 	if err != nil {
 		fmt.Println("can't get chain id")
@@ -137,8 +143,10 @@ func plugin(ctx *cli.Context) {
 	avsReader, err := chainio.BuildAvsReader(
 		common.HexToAddress(avsConfig.AVSRegistryCoordinatorAddress),
 		common.HexToAddress(avsConfig.OperatorStateRetrieverAddress),
+		common.HexToAddress(avsConfig.OrderBookAddress),
 		common.HexToAddress(avsConfig.SettlementAddress),
 		ethHttpClient,
+		ethHttpClient2,
 		logger,
 	)
 	if err != nil {
@@ -157,8 +165,10 @@ func plugin(ctx *cli.Context) {
 		txMgr,
 		common.HexToAddress(avsConfig.AVSRegistryCoordinatorAddress),
 		common.HexToAddress(avsConfig.OperatorStateRetrieverAddress),
+		common.HexToAddress(avsConfig.OrderBookAddress),
 		common.HexToAddress(avsConfig.SettlementAddress),
 		ethHttpClient,
+		ethHttpClient2,
 		logger,
 	)
 	if err != nil {

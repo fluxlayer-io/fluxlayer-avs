@@ -28,3 +28,14 @@ via_ir = false
 solc_version = '0.8.12'
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
+
+[rpc_endpoints]
+holesky = "${HOLESKY_RPC_URL}"
+sepolia = "${SEPOLIA_RPC_URL}"
+holesky_fork = "${HOLESKY_FORK_RPC_URL}"
+sepolia_fork = "${SEPOLIA_FORK_RPC_URL}"
+
+[etherscan]
+holesky = { key = "8GWD6PI9JF9PUERQ9JMADRD4SKMEVE3EQV"}
+sepolia = { key = "8GWD6PI9JF9PUERQ9JMADRD4SKMEVE3EQV"}
+

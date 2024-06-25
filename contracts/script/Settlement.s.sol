@@ -10,7 +10,9 @@ import "../src/Settlement.sol";
 
 contract SettlementDeployer is SignUtils, Utils {
     uint256 public PK = vm.envUint("PRIVATE_KEY");
+    uint32 signChainId = 17000;
     Settlement settlement;
+    ERC20Mock public outputToken;
 
     function run() external {
         // read orderBook address
@@ -23,8 +25,14 @@ contract SettlementDeployer is SignUtils, Utils {
                 ".addresses.orderBook"
             )
         );
-        settlement = new Settlement(address(orderBook));
+        settlement = new Settlement(address(orderBook), signChainId);
         string memory deployed_addresses = "addresses";
+        outputToken = new ERC20Mock();
+        vm.serializeAddress(
+            deployed_addresses,
+            "outputToken",
+            address(outputToken)
+        );
         string memory deployed_addresses_output = vm.serializeAddress(
             deployed_addresses,
             "settlement",
