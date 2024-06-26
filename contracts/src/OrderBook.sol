@@ -112,7 +112,7 @@ OrderEIP712
 
         // get order
         Order memory order = allOrderDetails[orderResponse.referenceOrderIndex];
-        IERC20(order.inputToken).transferFrom(address(this), order.taker, order.inputAmount);
+        IERC20(order.inputToken).transfer(order.taker, order.inputAmount);
         // emitting event
         emit OrderRespondedEvent(orderResponse, orderResponseMetadata);
     }
