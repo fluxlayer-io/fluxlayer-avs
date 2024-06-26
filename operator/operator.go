@@ -375,9 +375,17 @@ func (o *Operator) waitForTransactionSuccess(ctx context.Context, ethClient eth.
 		default:
 			// Check transaction status
 			receipt, _ := ethClient.TransactionReceipt(ctx, common.HexToHash(txHash))
+			// Wait for two blocks
+			blockNumber := receipt.BlockNumber
 			if receipt != nil {
 				// Transaction is successful
-				return true
+				for {
+					curBlockNumber, _ := ethClient.BlockNumber(ctx)
+					// wait for 2 block confirmations
+					if curBlockNumber > blockNumber.Uint64()+2 {
+						return true
+					}
+				}
 			}
 			// Transaction not yet successful, wait for a while before checking again
 			o.logger.Info("Waiting for transaction to be mined", "txHash", txHash)
