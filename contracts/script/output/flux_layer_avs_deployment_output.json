@@ -4,11 +4,11 @@
     "erc20MockStrategy": "0x654b7D87f731715bC5FbE17a14425b6a34F7A040",
     "fluxLayerServiceManager": "0x6e8b6931432d3974dB47101c57CC6A239D31F219",
     "fluxLayerServiceManagerImplementation": "0xaE23DDA6394199224BBa9113Cde268Dc0bc87d6F",
-    "inputToken": "0x141a432F5b121f2104D036eb7A9A2C44fDF95B17",
+    "inputToken": "0xC36E19B16c276D10BE40c7b9D3c026E8f482f2aD",
     "operatorStateRetriever": "0x010Bf742754D02110d4F4783Fd4eaD408F89dF61",
     "orderBook": "0x6910DC4431f3853C5f18b557a19a6Eb662A8667d",
     "orderBookImplementation": "0xfD835df8a68573e564823Af502A4E4dff309be61",
-    "outputToken": "0xdDdc4F09e5Ff0444Bb7F37D2083Ad4559125496C",
+    "outputToken": "0x6CE1551CE42d92e2E70De97d963C027E5a70F621",
     "registryCoordinator": "0x6ee1C7d7ED1Abad9CC40C9Abe559f1441d18E401",
     "registryCoordinatorImplementation": "0xE26B760C69FB0Ce2D6f31B9c41c9b0aE2615808f",
     "settlement": "0x29f3DD471248f0405bEa909bbAd584a2fCAAE423"
