@@ -64,7 +64,7 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	agg.logger.Infof("Initializing new task for order %d, block %d", fulfillment.Order.OrderId, fulfillment.Raw.BlockNumber)
 	// TODO: set quorum number, threshold percentage, and timeout as constants
 	// check order sig from event with sig in db
-	sig := common.Bytes2Hex(fulfillment.Sig)
+	sig := "0x" + common.Bytes2Hex(fulfillment.Sig)
 	o := agg.orderBook.GetOrder(fulfillment.Order.OrderId)
 	if o == nil {
 		return errors.New("off-chain order does not exist")
