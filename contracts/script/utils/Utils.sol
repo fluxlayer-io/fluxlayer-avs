@@ -62,9 +62,8 @@ contract Utils is Script {
             vm.projectRoot(),
             "/script/input/"
         );
-        string memory chainDir = string.concat(vm.toString(block.chainid), "/");
         string memory file = string.concat(inputFileName, ".json");
-        return vm.readFile(string.concat(inputDir, chainDir, file));
+        return vm.readFile(string.concat(inputDir, file));
     }
 
     function readOutput(
@@ -74,9 +73,8 @@ contract Utils is Script {
             vm.projectRoot(),
             "/script/output/"
         );
-        string memory chainDir = string.concat(vm.toString(block.chainid), "/");
         string memory file = string.concat(outputFileName, ".json");
-        return vm.readFile(string.concat(inputDir, chainDir, file));
+        return vm.readFile(string.concat(inputDir, file));
     }
 
     function writeOutput(
@@ -87,10 +85,8 @@ contract Utils is Script {
             vm.projectRoot(),
             "/script/output/"
         );
-        string memory chainDir = string.concat(vm.toString(block.chainid), "/");
         string memory outputFilePath = string.concat(
             outputDir,
-            chainDir,
             outputFileName,
             ".json"
         );

@@ -12,7 +12,7 @@ CHAINID=17000
 # Make sure to update this if the strategy address changes
 # check in contracts/script/output/${CHAINID}/flux_layer_avs_deployment_output.json
 STRATEGY_ADDRESS=0x7FA5BFBaFf26F29399b684bb177763d59F9d3452
-DEPLOYMENT_FILES_DIR=contracts/script/output/${CHAINID}
+DEPLOYMENT_FILES_DIR=contracts/script/output
 
 -----------------------------: ## 
 

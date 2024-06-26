@@ -3,6 +3,7 @@ package operator
 import (
 	"context"
 	"fmt"
+	orderbook "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/OrderBook"
 	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
 	"golang.org/x/crypto/sha3"
 	"os"
@@ -39,9 +40,10 @@ const AVS_NAME = "incredible-squaring"
 const SEM_VER = "0.0.1"
 
 type Operator struct {
-	config    types.NodeConfig
-	logger    logging.Logger
-	ethClient eth.Client
+	config     types.NodeConfig
+	logger     logging.Logger
+	ethClient  eth.Client
+	ethClient2 eth.Client
 	// TODO(samlaf): remove both avsWriter and eigenlayerWrite from operator
 	// they are only used for registration, so we should make a special registration package
 	// this way, auditing this operator code makes it obvious that operators don't need to
@@ -90,6 +92,7 @@ func NewOperatorFromConfig(c types.NodeConfig) (*Operator, error) {
 	nodeApi := nodeapi.NewNodeApi(AVS_NAME, SEM_VER, c.NodeApiIpPortAddress, logger)
 
 	var ethRpcClient, ethWsClient eth.Client
+	var ethRpcClient2, ethWsClient2 eth.Client
 	if c.EnableMetrics {
 		rpcCallsCollector := rpccalls.NewCollector(AVS_NAME, reg)
 		ethRpcClient, err = eth.NewInstrumentedClient(c.EthRpcUrl, rpcCallsCollector)
@@ -102,15 +105,35 @@ func NewOperatorFromConfig(c types.NodeConfig) (*Operator, error) {
 			logger.Errorf("Cannot create ws ethclient", "err", err)
 			return nil, err
 		}
+		ethRpcClient2, err = eth.NewInstrumentedClient(c.EthRpcUrl2, rpcCallsCollector)
+		if err != nil {
+			logger.Errorf("Cannot create http ethclient2", "err", err)
+			return nil, err
+		}
+		ethWsClient2, err = eth.NewInstrumentedClient(c.EthWsUrl2, rpcCallsCollector)
+		if err != nil {
+			logger.Errorf("Cannot create ws ethclient2", "err", err)
+			return nil, err
+		}
 	} else {
 		ethRpcClient, err = eth.NewClient(c.EthRpcUrl)
 		if err != nil {
 			logger.Errorf("Cannot create http ethclient", "err", err)
 			return nil, err
 		}
+		ethRpcClient2, err = eth.NewClient(c.EthRpcUrl2)
+		if err != nil {
+			logger.Errorf("Cannot create http ethclient2", "err", err)
+			return nil, err
+		}
 		ethWsClient, err = eth.NewClient(c.EthWsUrl)
 		if err != nil {
 			logger.Errorf("Cannot create ws ethclient", "err", err)
+			return nil, err
+		}
+		ethWsClient2, err = eth.NewClient(c.EthWsUrl2)
+		if err != nil {
+			logger.Errorf("Cannot create ws ethclient2", "err", err)
 			return nil, err
 		}
 	}
@@ -173,8 +196,9 @@ func NewOperatorFromConfig(c types.NodeConfig) (*Operator, error) {
 	avsWriter, err := chainio.BuildAvsWriter(
 		txMgr, common.HexToAddress(c.AVSRegistryCoordinatorAddress),
 		common.HexToAddress(c.OperatorStateRetrieverAddress),
+		common.HexToAddress(c.OrderBookAddress),
 		common.HexToAddress(c.SettlementAddress),
-		ethRpcClient, logger,
+		ethRpcClient, ethRpcClient, logger,
 	)
 	if err != nil {
 		logger.Error("Cannot create AvsWriter", "err", err)
@@ -184,14 +208,15 @@ func NewOperatorFromConfig(c types.NodeConfig) (*Operator, error) {
 	avsReader, err := chainio.BuildAvsReader(
 		common.HexToAddress(c.AVSRegistryCoordinatorAddress),
 		common.HexToAddress(c.OperatorStateRetrieverAddress),
+		common.HexToAddress(c.OrderBookAddress),
 		common.HexToAddress(c.SettlementAddress),
-		ethRpcClient, logger)
+		ethRpcClient, ethRpcClient2, logger)
 	if err != nil {
 		logger.Error("Cannot create AvsReader", "err", err)
 		return nil, err
 	}
 	avsSubscriber, err := chainio.BuildAvsSubscriber(
-		common.HexToAddress(c.SettlementAddress), ethWsClient, logger,
+		common.HexToAddress(c.OrderBookAddress), common.HexToAddress(c.SettlementAddress), ethWsClient, ethWsClient2, logger,
 	)
 	if err != nil {
 		logger.Error("Cannot create AvsSubscriber", "err", err)
@@ -221,6 +246,7 @@ func NewOperatorFromConfig(c types.NodeConfig) (*Operator, error) {
 		metrics:                            avsAndEigenMetrics,
 		nodeApi:                            nodeApi,
 		ethClient:                          ethRpcClient,
+		ethClient2:                         ethRpcClient2,
 		avsWriter:                          avsWriter,
 		avsReader:                          avsReader,
 		avsSubscriber:                      avsSubscriber,
@@ -317,7 +343,7 @@ func (o *Operator) Start(ctx context.Context) error {
 
 // Takes a ContractSettlementFulfillEvent struct as input and returns a TaskResponseHeader struct.
 // The TaskResponseHeader struct is the struct that is signed and sent to the contract as a task response.
-func (o *Operator) ProcessNewFulfillmentLog(fulfillLog *settlement.ContractSettlementFulfillEvent) *settlement.ISettlementOrderResponse {
+func (o *Operator) ProcessNewFulfillmentLog(fulfillLog *settlement.ContractSettlementFulfillEvent) *orderbook.IOrderBookOrderResponse {
 	// convert bytes to hex
 	o.logger.Info("Received new fulfill event",
 		"txHashToBeVerified", fulfillLog.Raw.TxHash.Hex(),
@@ -328,10 +354,10 @@ func (o *Operator) ProcessNewFulfillmentLog(fulfillLog *settlement.ContractSettl
 	copy(txBytes[:], hasher.Sum(nil)[:32])
 	// check if txHash is mined
 	for {
-		txSuccess := o.waitForTransactionSuccess(context.Background(), fulfillLog.Raw.TxHash.Hex())
+		txSuccess := o.waitForTransactionSuccess(context.Background(), o.ethClient2, fulfillLog.Raw.TxHash.Hex())
 		// wait for tx to be mined
 		if txSuccess {
-			taskResponse := &settlement.ISettlementOrderResponse{
+			taskResponse := &orderbook.IOrderBookOrderResponse{
 				ReferenceOrderIndex: fulfillLog.Order.OrderId,
 				Recipient:           fulfillLog.Recipient,
 			}
@@ -340,7 +366,7 @@ func (o *Operator) ProcessNewFulfillmentLog(fulfillLog *settlement.ContractSettl
 	}
 }
 
-func (o *Operator) waitForTransactionSuccess(ctx context.Context, txHash string) bool {
+func (o *Operator) waitForTransactionSuccess(ctx context.Context, ethClient eth.Client, txHash string) bool {
 	for {
 		select {
 		case <-ctx.Done():
@@ -348,7 +374,7 @@ func (o *Operator) waitForTransactionSuccess(ctx context.Context, txHash string)
 			return false
 		default:
 			// Check transaction status
-			receipt, _ := o.ethClient.TransactionReceipt(ctx, common.HexToHash(txHash))
+			receipt, _ := ethClient.TransactionReceipt(ctx, common.HexToHash(txHash))
 			if receipt != nil {
 				// Transaction is successful
 				return true
@@ -360,7 +386,7 @@ func (o *Operator) waitForTransactionSuccess(ctx context.Context, txHash string)
 	}
 }
 
-func (o *Operator) SignTaskResponse(taskResponse *settlement.ISettlementOrderResponse) (*aggregator.SignedTaskResponse, error) {
+func (o *Operator) SignTaskResponse(taskResponse *orderbook.IOrderBookOrderResponse) (*aggregator.SignedTaskResponse, error) {
 	taskResponseHash, err := core.GetTaskResponseDigest(taskResponse)
 	if err != nil {
 		o.logger.Error("Error getting task response header hash. skipping task (this is not expected and should be investigated)", "err", err)

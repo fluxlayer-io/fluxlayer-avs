@@ -7,7 +7,7 @@ import (
 	"github.com/Layr-Labs/eigensdk-go/chainio/clients/eth"
 	"github.com/Layr-Labs/eigensdk-go/chainio/txmgr"
 	"github.com/Layr-Labs/eigensdk-go/logging"
-	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
+	orderbook "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/OrderBook"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -20,15 +20,15 @@ type AvsWriterer interface {
 
 	RaiseChallenge(
 		ctx context.Context,
-		order settlement.ISettlementOrder,
-		orderResponse settlement.ISettlementOrderResponse,
-		orderResponseMetadata settlement.ISettlementOrderResponseMetadata,
-		pubkeysOfNonSigningOperators []settlement.BN254G1Point,
+		order orderbook.IOrderBookOrder,
+		orderResponse orderbook.IOrderBookOrderResponse,
+		orderResponseMetadata orderbook.IOrderBookOrderResponseMetadata,
+		pubkeysOfNonSigningOperators []orderbook.BN254G1Point,
 	) (*types.Receipt, error)
 	SendAggregatedResponse(ctx context.Context,
-		order settlement.ISettlementOrder,
-		orderResponse settlement.ISettlementOrderResponse,
-		nonSignerStakesAndSignature settlement.IBLSSignatureCheckerNonSignerStakesAndSignature,
+		order orderbook.IOrderBookOrder,
+		orderResponse orderbook.IOrderBookOrderResponse,
+		nonSignerStakesAndSignature orderbook.IBLSSignatureCheckerNonSignerStakesAndSignature,
 	) (*types.Receipt, error)
 }
 
@@ -43,11 +43,11 @@ type AvsWriter struct {
 var _ AvsWriterer = (*AvsWriter)(nil)
 
 func BuildAvsWriterFromConfig(c *config.Config) (*AvsWriter, error) {
-	return BuildAvsWriter(c.TxMgr, c.IncredibleSquaringRegistryCoordinatorAddr, c.OperatorStateRetrieverAddr, c.SettlementAddr, c.EthHttpClient, c.Logger)
+	return BuildAvsWriter(c.TxMgr, c.FluxLayerRegistryCoordinatorAddr, c.OperatorStateRetrieverAddr, c.OrderBookAddr, c.SettlementAddr, c.EthHttpClient, c.EthHttpClient2, c.Logger)
 }
 
-func BuildAvsWriter(txMgr txmgr.TxManager, registryCoordinatorAddr, operatorStateRetrieverAddr, settlmentAddr gethcommon.Address, ethHttpClient eth.Client, logger logging.Logger) (*AvsWriter, error) {
-	avsServiceBindings, err := NewAvsManagersBindings(settlmentAddr, ethHttpClient, logger)
+func BuildAvsWriter(txMgr txmgr.TxManager, registryCoordinatorAddr, operatorStateRetrieverAddr, orderBookAddr, settlementAddr gethcommon.Address, ethHttpClient, ethHttpClient2 eth.Client, logger logging.Logger) (*AvsWriter, error) {
+	avsServiceBindings, err := NewAvsManagersBindings(orderBookAddr, settlementAddr, ethHttpClient, ethHttpClient2, logger)
 	if err != nil {
 		logger.Error("Failed to create contract bindings", "err", err)
 		return nil, err
@@ -69,9 +69,9 @@ func NewAvsWriter(avsRegistryWriter avsregistry.AvsRegistryWriter, avsServiceBin
 
 func (w *AvsWriter) SendAggregatedResponse(
 	ctx context.Context,
-	order settlement.ISettlementOrder,
-	orderResponse settlement.ISettlementOrderResponse,
-	nonSignerStakesAndSignature settlement.IBLSSignatureCheckerNonSignerStakesAndSignature,
+	order orderbook.IOrderBookOrder,
+	orderResponse orderbook.IOrderBookOrderResponse,
+	nonSignerStakesAndSignature orderbook.IBLSSignatureCheckerNonSignerStakesAndSignature,
 ) (*types.Receipt, error) {
 	txOpts, err := w.TxMgr.GetNoSendTxOpts()
 	if err != nil {
@@ -79,7 +79,7 @@ func (w *AvsWriter) SendAggregatedResponse(
 		return nil, err
 	}
 	orderExec, _ := w.AvsContractBindings.Settlement.AllOrderExecutions(&bind.CallOpts{}, orderResponse.ReferenceOrderIndex)
-	tx, err := w.AvsContractBindings.Settlement.RespondToFulfill(txOpts, orderExec.QuorumNumbers, orderExec.QuorumThresholdPercentage, orderExec.CreatedBlock, orderResponse, nonSignerStakesAndSignature)
+	tx, err := w.AvsContractBindings.OrderBook.RespondToFulfill(txOpts, orderExec.QuorumNumbers, orderExec.QuorumThresholdPercentage, orderExec.CreatedBlock, orderResponse, nonSignerStakesAndSignature)
 	if err != nil {
 		w.logger.Error("Error submitting SubmitTaskResponse tx while calling respondToTask", "err", err)
 		return nil, err
@@ -94,10 +94,10 @@ func (w *AvsWriter) SendAggregatedResponse(
 
 func (w *AvsWriter) RaiseChallenge(
 	ctx context.Context,
-	order settlement.ISettlementOrder,
-	orderResponse settlement.ISettlementOrderResponse,
-	orderResponseMetadata settlement.ISettlementOrderResponseMetadata,
-	pubkeysOfNonSigningOperators []settlement.BN254G1Point,
+	order orderbook.IOrderBookOrder,
+	orderResponse orderbook.IOrderBookOrderResponse,
+	orderResponseMetadata orderbook.IOrderBookOrderResponseMetadata,
+	pubkeysOfNonSigningOperators []orderbook.BN254G1Point,
 ) (*types.Receipt, error) {
 	return nil, errors.New("not implemented")
 }

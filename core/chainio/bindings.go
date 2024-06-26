@@ -3,8 +3,8 @@ package chainio
 import (
 	"github.com/Layr-Labs/eigensdk-go/chainio/clients/eth"
 	"github.com/Layr-Labs/eigensdk-go/logging"
+	contractOrderBook "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/OrderBook"
 	contractSettlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
-
 	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 
@@ -12,17 +12,25 @@ import (
 )
 
 type AvsManagersBindings struct {
+	OrderBook  *contractOrderBook.ContractOrderBook
 	Settlement *contractSettlement.ContractSettlement
 	ethClient  eth.Client
 	logger     logging.Logger
 }
 
-func NewAvsManagersBindings(settlementAddr gethcommon.Address, ethclient eth.Client, logger logging.Logger) (*AvsManagersBindings, error) {
-	settlement, err := contractSettlement.NewContractSettlement(settlementAddr, ethclient)
+func NewAvsManagersBindings(orderBookAddr gethcommon.Address, settlementAddr gethcommon.Address, ethclient eth.Client, ethClient2 eth.Client, logger logging.Logger) (*AvsManagersBindings, error) {
+	// orderbook (holesky)
+	orderBook, err := contractOrderBook.NewContractOrderBook(orderBookAddr, ethclient)
+	if err != nil {
+		return nil, err
+	}
+	// settlement (sepolia)
+	settlement, err := contractSettlement.NewContractSettlement(settlementAddr, ethClient2)
 	if err != nil {
 		return nil, err
 	}
 	return &AvsManagersBindings{
+		OrderBook:  orderBook,
 		Settlement: settlement,
 		ethClient:  ethclient,
 		logger:     logger,

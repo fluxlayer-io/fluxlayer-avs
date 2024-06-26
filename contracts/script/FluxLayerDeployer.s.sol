@@ -28,10 +28,11 @@ import "forge-std/StdJson.sol";
 import "forge-std/console.sol";
 import "../src/OrderBook.sol";
 import "../src/FluxLayerServiceManager.sol";
+import "../src/Settlement.sol";
 
 // # To deploy and verify our contract
 // anvil --block-time 5 -f https://ethereum-holesky-rpc.publicnode.com
-// forge script script/FluxLayerDeployer.s.sol:FluxLayerDeployer --rpc-url http://127.0.0.1:8545 --legacy --broadcast
+// forge script script/FluxLayerDeployer.s.sol:FluxLayerDeployer --legacy --broadcast
 contract FluxLayerDeployer is Script, Utils {
     uint256 public PK = vm.envUint("PRIVATE_KEY");
     // DEPLOYMENT CONSTANTS
@@ -71,10 +72,15 @@ contract FluxLayerDeployer is Script, Utils {
     OrderBook public orderBook;
     OrderBook public orderBookImplementation;
 
+    Settlement public settlement;
+
     ERC20Mock public inputToken;
     ERC20Mock public outputToken;
+    uint32 public signChainId = 17000;
 
     function run() external {
+        vm.createSelectFork(vm.rpcUrl("holesky"));
+        vm.startBroadcast(PK);
         // Eigenlayer contracts
         string memory eigenlayerDeployedContracts = readOutput(
             "eigenlayer_deployment_output"
@@ -119,21 +125,20 @@ contract FluxLayerDeployer is Script, Utils {
         address credibleSquaringCommunityMultisig = msg.sender;
         address credibleSquaringPauser = msg.sender;
 
-        vm.startBroadcast(PK);
         _deployErc20AndStrategyAndWhitelistStrategy(
             eigenLayerProxyAdmin,
             eigenLayerPauserReg,
             baseStrategyImplementation,
             strategyManager
         );
-        _deployCredibleSquaringContracts(
+        vm.stopBroadcast();
+        _deployFluxLayerContracts(
             delegationManager,
             avsDirectory,
             erc20MockStrategy,
             credibleSquaringCommunityMultisig,
             credibleSquaringPauser
         );
-        vm.stopBroadcast();
     }
 
     function _deployErc20AndStrategyAndWhitelistStrategy(
@@ -170,13 +175,14 @@ contract FluxLayerDeployer is Script, Utils {
         );
     }
 
-    function _deployCredibleSquaringContracts(
+    function _deployFluxLayerContracts(
         IDelegationManager delegationManager,
         IAVSDirectory avsDirectory,
         IStrategy strat,
         address fluxLayerCommunityMultisig,
         address fluxLayerPauser
     ) internal {
+        vm.startBroadcast(PK);
         // Adding this as a temporary fix to make the rest of the script work with a single strategy
         // since it was originally written to work with an array of strategies
         IStrategy[1] memory deployedStrategyArray = [strat];
@@ -373,7 +379,7 @@ contract FluxLayerDeployer is Script, Utils {
             address(fluxLayerServiceManagerImplementation)
         );
 
-        orderBookImplementation = new OrderBook(registryCoordinator);
+        orderBookImplementation = new OrderBook(registryCoordinator, signChainId);
         // Third, upgrade the proxy contracts to use the correct implementation contracts and initialize them.
         fluxLayerProxyAdmin.upgradeAndCall(
             TransparentUpgradeableProxy(
@@ -389,7 +395,13 @@ contract FluxLayerDeployer is Script, Utils {
         );
 
         inputToken = new ERC20Mock();
+        vm.stopBroadcast();
+
+        vm.createSelectFork(vm.rpcUrl("sepolia"));
+        vm.startBroadcast(PK);
         outputToken = new ERC20Mock();
+        settlement = new Settlement(address(orderBook), signChainId);
+        vm.stopBroadcast();
 
         // WRITE JSON DATA
         string memory parent_object = "parent object";
@@ -445,6 +457,11 @@ contract FluxLayerDeployer is Script, Utils {
             deployed_addresses,
             "outputToken",
             address(outputToken)
+        );
+        vm.serializeAddress(
+            deployed_addresses,
+            "settlement",
+            address(settlement)
         );
         string memory deployed_addresses_output = vm.serializeAddress(
             deployed_addresses,

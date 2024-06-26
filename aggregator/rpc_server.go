@@ -3,8 +3,11 @@ package aggregator
 import (
 	"context"
 	"errors"
+	"fmt"
 	aggtypes "github.com/Layr-Labs/incredible-squaring-avs/aggregator/types"
+	orderbook "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/OrderBook"
 	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
+	"github.com/ethereum/go-ethereum/common"
 	"net/http"
 	"net/rpc"
 	"time"
@@ -41,7 +44,7 @@ func (agg *Aggregator) startServer(ctx context.Context) error {
 }
 
 type SignedTaskResponse struct {
-	TaskResponse settlement.ISettlementOrderResponse
+	TaskResponse orderbook.IOrderBookOrderResponse
 	BlsSignature bls.Signature
 	OperatorId   types.OperatorId
 }
@@ -60,9 +63,18 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	order := fulfillment.Order
 	agg.logger.Infof("Initializing new task for order %d, block %d", fulfillment.Order.OrderId, fulfillment.Raw.BlockNumber)
 	// TODO: set quorum number, threshold percentage, and timeout as constants
+	// check order sig from event with sig in db
+	sig := common.Bytes2Hex(fulfillment.Sig)
+	o := agg.orderBook.GetOrder(fulfillment.Order.OrderId)
+	if o == nil {
+		return errors.New("off-chain order does not exist")
+	}
+	if sig != o.Sig {
+		return fmt.Errorf("order signature does not match, got=[%s], expected=[%s]", sig, o.Sig)
+	}
 	agg.blsAggregationService.InitializeNewTask(fulfillment.Order.OrderId, uint32(fulfillment.Raw.BlockNumber), aggtypes.QUORUM_NUMBERS, types.QuorumThresholdPercentages{100}, time.Second*3600)
 	agg.tasksMu.Lock()
-	agg.tasks[fulfillment.Order.OrderId] = settlement.ISettlementOrder{
+	agg.tasks[fulfillment.Order.OrderId] = orderbook.IOrderBookOrder{
 		Maker:               order.Maker,
 		Taker:               order.Taker,
 		InputToken:          order.InputToken,
@@ -82,7 +94,7 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	}
 	agg.taskResponsesMu.Lock()
 	if _, ok := agg.taskResponses[taskIndex]; !ok {
-		agg.taskResponses[taskIndex] = make(map[sdktypes.TaskResponseDigest]settlement.ISettlementOrderResponse)
+		agg.taskResponses[taskIndex] = make(map[sdktypes.TaskResponseDigest]orderbook.IOrderBookOrderResponse)
 	}
 	if _, ok := agg.taskResponses[taskIndex][taskResponseDigest]; !ok {
 		agg.taskResponses[taskIndex][taskResponseDigest] = signedTaskResponse.TaskResponse

@@ -2,7 +2,7 @@ package chainio
 
 import (
 	"context"
-	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
+	orderbook "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/OrderBook"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gethcommon "github.com/ethereum/go-ethereum/common"
@@ -19,8 +19,8 @@ type AvsReaderer interface {
 	sdkavsregistry.AvsRegistryReader
 
 	CheckSignatures(
-		ctx context.Context, msgHash [32]byte, quorumNumbers []byte, referenceBlockNumber uint32, nonSignerStakesAndSignature settlement.IBLSSignatureCheckerNonSignerStakesAndSignature,
-	) (settlement.IBLSSignatureCheckerQuorumStakeTotals, error)
+		ctx context.Context, msgHash [32]byte, quorumNumbers []byte, referenceBlockNumber uint32, nonSignerStakesAndSignature orderbook.IBLSSignatureCheckerNonSignerStakesAndSignature,
+	) (orderbook.IBLSSignatureCheckerQuorumStakeTotals, error)
 	GetErc20Mock(ctx context.Context, tokenAddr gethcommon.Address) (*erc20mock.ContractERC20Mock, error)
 }
 
@@ -33,14 +33,14 @@ type AvsReader struct {
 var _ AvsReaderer = (*AvsReader)(nil)
 
 func BuildAvsReaderFromConfig(c *config.Config) (*AvsReader, error) {
-	return BuildAvsReader(c.IncredibleSquaringRegistryCoordinatorAddr, c.OperatorStateRetrieverAddr, c.SettlementAddr, c.EthHttpClient, c.Logger)
+	return BuildAvsReader(c.FluxLayerRegistryCoordinatorAddr, c.OperatorStateRetrieverAddr, c.OrderBookAddr, c.SettlementAddr, c.EthHttpClient, c.EthHttpClient2, c.Logger)
 }
-func BuildAvsReader(registryCoordinatorAddr, operatorStateRetrieverAddr, settlementAddr gethcommon.Address, ethHttpClient eth.Client, logger logging.Logger) (*AvsReader, error) {
+func BuildAvsReader(registryCoordinatorAddr, operatorStateRetrieverAddr, orderBookAddr, settlementAddr gethcommon.Address, ethHttpClient, ethHttpClient2 eth.Client, logger logging.Logger) (*AvsReader, error) {
 	// log the addresses
 	logger.Info("RegistryCoordinatorAddr", "addr", registryCoordinatorAddr.Hex())
 	logger.Info("OperatorStateRetrieverAddr", "addr", operatorStateRetrieverAddr.Hex())
-	logger.Info("SettlementAddr", "addr", settlementAddr.Hex())
-	avsManagersBindings, err := NewAvsManagersBindings(settlementAddr, ethHttpClient, logger)
+	logger.Info("OrderBookAddr", "addr", orderBookAddr.Hex())
+	avsManagersBindings, err := NewAvsManagersBindings(orderBookAddr, settlementAddr, ethHttpClient, ethHttpClient2, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -59,13 +59,13 @@ func NewAvsReader(avsRegistryReader sdkavsregistry.AvsRegistryReader, avsService
 }
 
 func (r *AvsReader) CheckSignatures(
-	ctx context.Context, msgHash [32]byte, quorumNumbers []byte, referenceBlockNumber uint32, nonSignerStakesAndSignature settlement.IBLSSignatureCheckerNonSignerStakesAndSignature,
-) (settlement.IBLSSignatureCheckerQuorumStakeTotals, error) {
-	stakeTotalsPerQuorum, _, err := r.AvsServiceBindings.Settlement.CheckSignatures(
+	ctx context.Context, msgHash [32]byte, quorumNumbers []byte, referenceBlockNumber uint32, nonSignerStakesAndSignature orderbook.IBLSSignatureCheckerNonSignerStakesAndSignature,
+) (orderbook.IBLSSignatureCheckerQuorumStakeTotals, error) {
+	stakeTotalsPerQuorum, _, err := r.AvsServiceBindings.OrderBook.CheckSignatures(
 		&bind.CallOpts{}, msgHash, quorumNumbers, referenceBlockNumber, nonSignerStakesAndSignature,
 	)
 	if err != nil {
-		return settlement.IBLSSignatureCheckerQuorumStakeTotals{}, err
+		return orderbook.IBLSSignatureCheckerQuorumStakeTotals{}, err
 	}
 	return stakeTotalsPerQuorum, nil
 }

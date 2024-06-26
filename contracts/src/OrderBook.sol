@@ -43,8 +43,9 @@ OrderEIP712
     }
 
     constructor(
-        IRegistryCoordinator _registryCoordinator
-    ) BLSSignatureChecker(_registryCoordinator) OrderEIP712("OrderBook", "1.0", address(0)){
+        IRegistryCoordinator _registryCoordinator,
+        uint32 signChainId
+    ) BLSSignatureChecker(_registryCoordinator) OrderEIP712("OrderBook", "1.0", signChainId, address(0)){
     }
 
     function initialize(
@@ -111,7 +112,7 @@ OrderEIP712
 
         // get order
         Order memory order = allOrderDetails[orderResponse.referenceOrderIndex];
-        IERC20(order.inputToken).transferFrom(address(this), order.taker, order.inputAmount);
+        IERC20(order.inputToken).transfer(order.taker, order.inputAmount);
         // emitting event
         emit OrderRespondedEvent(orderResponse, orderResponseMetadata);
     }

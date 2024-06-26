@@ -6,10 +6,13 @@ type NodeConfig struct {
 	OperatorAddress               string `yaml:"operator_address"`
 	OperatorStateRetrieverAddress string `yaml:"operator_state_retriever_address"`
 	AVSRegistryCoordinatorAddress string `yaml:"avs_registry_coordinator_address"`
+	OrderBookAddress              string `yaml:"order_book_address"`
 	SettlementAddress             string `yaml:"settlement_address"`
 	TokenStrategyAddr             string `yaml:"token_strategy_addr"`
 	EthRpcUrl                     string `yaml:"eth_rpc_url"`
 	EthWsUrl                      string `yaml:"eth_ws_url"`
+	EthRpcUrl2                    string `yaml:"eth_rpc_url2"`
+	EthWsUrl2                     string `yaml:"eth_ws_url2"`
 	BlsPrivateKeyStorePath        string `yaml:"bls_private_key_store_path"`
 	EcdsaPrivateKeyStorePath      string `yaml:"ecdsa_private_key_store_path"`
 	AggregatorServerIpPortAddress string `yaml:"aggregator_server_ip_port_address"`

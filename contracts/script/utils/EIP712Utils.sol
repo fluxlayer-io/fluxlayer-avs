@@ -7,8 +7,8 @@ contract EIP712Utils {
     bytes32 public constant ORDER_TYPEHASH = keccak256("Order(uint32,address maker,address taker,address inputToken,uint256 inputAmount,address outputToken,uint256 outputAmount,uint256 expiry,uint32 targetNetworkNumber)");
     bytes32 DOMAIN_SEPARATOR;
 
-    constructor(string memory name, string memory version, address target) {
-        DOMAIN_SEPARATOR = _buildDomainSeparator(name, version, target);
+    constructor(string memory name, string memory version, uint32 chainId, address target) {
+        DOMAIN_SEPARATOR = _buildDomainSeparator(name, version, chainId, target);
         console.log("DOMAIN_SEPARATOR");
         console.logBytes32(DOMAIN_SEPARATOR);
         console.log("ORDER_TYPEHASH");
@@ -19,6 +19,7 @@ contract EIP712Utils {
     function _buildDomainSeparator(
         string memory name,
         string memory version,
+        uint32 chainId,
         address verifyingContract
     ) private view returns (bytes32) {
         bytes32 typeHash = keccak256(
@@ -26,7 +27,7 @@ contract EIP712Utils {
         );
         bytes32 nameHash = keccak256(bytes(name));
         bytes32 versionHash = keccak256(bytes(version));
-        return keccak256(abi.encode(typeHash, nameHash, versionHash, address(0), verifyingContract));
+        return keccak256(abi.encode(typeHash, nameHash, versionHash, chainId, verifyingContract));
     }
 
     // computes the hash of a permit
