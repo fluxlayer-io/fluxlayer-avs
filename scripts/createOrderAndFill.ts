@@ -28,8 +28,6 @@ async function main() {
     const jsonFilePath = path.join(__dirname, '../contracts/script/output/flux_layer_avs_deployment_output.json');
     const jsonData = fs.readFileSync(jsonFilePath, 'utf-8');
     const {addresses} = JSON.parse(jsonData);
-    // maker on holesky
-    const maker = new ethers.Wallet(process.env.MAKER_PRIVATE_KEY!, new ethers.JsonRpcProvider(process.env.HOLESKY_RPC_URL!));
     // taker on sepolia
     const taker = new ethers.Wallet(process.env.PRIVATE_KEY!, new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL!));
     // read order from avs
@@ -37,7 +35,7 @@ async function main() {
     // // get order with max order id
     const order = orders.reduce((a, b) => a.orderId > b.orderId ? a : b);
     // create order by maker on holesky, by calling createOrder in contract OrderBook
-    const orderBook = new Contract(addresses.orderBook, OrderBookABI, maker);
+    const orderBook = new Contract(addresses.orderBook, OrderBookABI, taker);
     const tx = await orderBook.createOrder([order.orderId, order.from, order.receiver, order.sellToken, order.sellAmount, order.buyToken, order.buyAmount, order.validTo, order.targetNetworkNumber], order.signature);
     await tx.wait();
     // log etherscan url
