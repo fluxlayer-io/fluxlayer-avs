@@ -7,15 +7,15 @@ import {Settlement} from "../../src/Settlement.sol";
 
 contract SampleData is Utils {
     // get current pk
-    uint32 orderId = 6;
+    uint32 orderId = 1;
     uint256 takerPk = vm.envUint("PRIVATE_KEY");
     address taker = vm.addr(takerPk);
     uint256 makerPk = vm.envUint("MAKER_PRIVATE_KEY");
     address maker = vm.addr(makerPk);
-    uint256 expiry = 9999999999;
+    uint256 expiry = 1819981735;
     uint32 targetNetworkNumber = 11155111;
-    uint256 inputAmount = 0.1 ether;
-    uint256 outputAmount = 0.1 ether;
+    uint256 inputAmount = 1000000000000000000;
+    uint256 outputAmount = 1000000000000000000;
     uint32 signChainId = 17000;
     address inputToken;
     address outputToken;

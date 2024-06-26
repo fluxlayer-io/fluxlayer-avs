@@ -1,0 +1,1352 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "contract IRegistryCoordinator",
+        "name": "_registryCoordinator",
+        "type": "address"
+      },
+      {
+        "internalType": "uint32",
+        "name": "signChainId",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidChain",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidOrder",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidSignature",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OrderExists",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OrderExpired",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OrderFulfilled",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TakerMismatch",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "sig",
+        "type": "bytes"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint32",
+            "name": "orderId",
+            "type": "uint32"
+          },
+          {
+            "internalType": "address",
+            "name": "maker",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "taker",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "inputToken",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "inputAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "outputToken",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "outputAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "expiry",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint32",
+            "name": "targetNetworkNumber",
+            "type": "uint32"
+          }
+        ],
+        "indexed": false,
+        "internalType": "struct IOrderBook.Order",
+        "name": "order",
+        "type": "tuple"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "quorumThresholdPercentage",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "quorumNumbers",
+        "type": "bytes"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "recipient",
+        "type": "address"
+      }
+    ],
+    "name": "FulfillEvent",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "version",
+        "type": "uint8"
+      }
+    ],
+    "name": "Initialized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "recipient",
+            "type": "address"
+          },
+          {
+            "internalType": "uint32",
+            "name": "referenceOrderIndex",
+            "type": "uint32"
+          }
+        ],
+        "indexed": false,
+        "internalType": "struct IOrderBook.OrderResponse",
+        "name": "orderResponse",
+        "type": "tuple"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint32",
+            "name": "orderResponsedBlock",
+            "type": "uint32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "hashOfNonSigners",
+            "type": "bytes32"
+          }
+        ],
+        "indexed": false,
+        "internalType": "struct IOrderBook.OrderResponseMetadata",
+        "name": "OrderResponseMetadata",
+        "type": "tuple"
+      }
+    ],
+    "name": "OrderRespondedEvent",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newPausedStatus",
+        "type": "uint256"
+      }
+    ],
+    "name": "Paused",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "contract IPauserRegistry",
+        "name": "pauserRegistry",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "contract IPauserRegistry",
+        "name": "newPauserRegistry",
+        "type": "address"
+      }
+    ],
+    "name": "PauserRegistrySet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "value",
+        "type": "bool"
+      }
+    ],
+    "name": "StaleStakesForbiddenUpdate",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newPausedStatus",
+        "type": "uint256"
+      }
+    ],
+    "name": "Unpaused",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "aggregator",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint32",
+        "name": "",
+        "type": "uint32"
+      }
+    ],
+    "name": "allOrderDetails",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "orderId",
+        "type": "uint32"
+      },
+      {
+        "internalType": "address",
+        "name": "maker",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "taker",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "inputToken",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "inputAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "outputToken",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "outputAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "expiry",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint32",
+        "name": "targetNetworkNumber",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint32",
+        "name": "",
+        "type": "uint32"
+      }
+    ],
+    "name": "allOrderHashes",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint32",
+        "name": "",
+        "type": "uint32"
+      }
+    ],
+    "name": "allOrderResponses",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "blsApkRegistry",
+    "outputs": [
+      {
+        "internalType": "contract IBLSApkRegistry",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "msgHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes",
+        "name": "quorumNumbers",
+        "type": "bytes"
+      },
+      {
+        "internalType": "uint32",
+        "name": "referenceBlockNumber",
+        "type": "uint32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint32[]",
+            "name": "nonSignerQuorumBitmapIndices",
+            "type": "uint32[]"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "X",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "Y",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct BN254.G1Point[]",
+            "name": "nonSignerPubkeys",
+            "type": "tuple[]"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "X",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "Y",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct BN254.G1Point[]",
+            "name": "quorumApks",
+            "type": "tuple[]"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256[2]",
+                "name": "X",
+                "type": "uint256[2]"
+              },
+              {
+                "internalType": "uint256[2]",
+                "name": "Y",
+                "type": "uint256[2]"
+              }
+            ],
+            "internalType": "struct BN254.G2Point",
+            "name": "apkG2",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "X",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "Y",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct BN254.G1Point",
+            "name": "sigma",
+            "type": "tuple"
+          },
+          {
+            "internalType": "uint32[]",
+            "name": "quorumApkIndices",
+            "type": "uint32[]"
+          },
+          {
+            "internalType": "uint32[]",
+            "name": "totalStakeIndices",
+            "type": "uint32[]"
+          },
+          {
+            "internalType": "uint32[][]",
+            "name": "nonSignerStakeIndices",
+            "type": "uint32[][]"
+          }
+        ],
+        "internalType": "struct IBLSSignatureChecker.NonSignerStakesAndSignature",
+        "name": "params",
+        "type": "tuple"
+      }
+    ],
+    "name": "checkSignatures",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint96[]",
+            "name": "signedStakeForQuorum",
+            "type": "uint96[]"
+          },
+          {
+            "internalType": "uint96[]",
+            "name": "totalStakeForQuorum",
+            "type": "uint96[]"
+          }
+        ],
+        "internalType": "struct IBLSSignatureChecker.QuorumStakeTotals",
+        "name": "",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint32",
+            "name": "orderId",
+            "type": "uint32"
+          },
+          {
+            "internalType": "address",
+            "name": "maker",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "taker",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "inputToken",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "inputAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "outputToken",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "outputAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "expiry",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint32",
+            "name": "targetNetworkNumber",
+            "type": "uint32"
+          }
+        ],
+        "internalType": "struct IOrderBook.Order",
+        "name": "order",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bytes",
+        "name": "sig",
+        "type": "bytes"
+      }
+    ],
+    "name": "createOrder",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "delegation",
+    "outputs": [
+      {
+        "internalType": "contract IDelegationManager",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IRegistryCoordinator",
+        "name": "registryCoordinator",
+        "type": "address"
+      },
+      {
+        "internalType": "uint32",
+        "name": "referenceBlockNumber",
+        "type": "uint32"
+      },
+      {
+        "internalType": "bytes",
+        "name": "quorumNumbers",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "nonSignerOperatorIds",
+        "type": "bytes32[]"
+      }
+    ],
+    "name": "getCheckSignaturesIndices",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint32[]",
+            "name": "nonSignerQuorumBitmapIndices",
+            "type": "uint32[]"
+          },
+          {
+            "internalType": "uint32[]",
+            "name": "quorumApkIndices",
+            "type": "uint32[]"
+          },
+          {
+            "internalType": "uint32[]",
+            "name": "totalStakeIndices",
+            "type": "uint32[]"
+          },
+          {
+            "internalType": "uint32[][]",
+            "name": "nonSignerStakeIndices",
+            "type": "uint32[][]"
+          }
+        ],
+        "internalType": "struct OperatorStateRetriever.CheckSignaturesIndices",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IRegistryCoordinator",
+        "name": "registryCoordinator",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "quorumNumbers",
+        "type": "bytes"
+      },
+      {
+        "internalType": "uint32",
+        "name": "blockNumber",
+        "type": "uint32"
+      }
+    ],
+    "name": "getOperatorState",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "operator",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "operatorId",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint96",
+            "name": "stake",
+            "type": "uint96"
+          }
+        ],
+        "internalType": "struct OperatorStateRetriever.Operator[][]",
+        "name": "",
+        "type": "tuple[][]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IRegistryCoordinator",
+        "name": "registryCoordinator",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "operatorId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "blockNumber",
+        "type": "uint32"
+      }
+    ],
+    "name": "getOperatorState",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "operator",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "operatorId",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint96",
+            "name": "stake",
+            "type": "uint96"
+          }
+        ],
+        "internalType": "struct OperatorStateRetriever.Operator[][]",
+        "name": "",
+        "type": "tuple[][]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IRegistryCoordinator",
+        "name": "registryCoordinator",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "operatorIds",
+        "type": "bytes32[]"
+      },
+      {
+        "internalType": "uint32",
+        "name": "blockNumber",
+        "type": "uint32"
+      }
+    ],
+    "name": "getQuorumBitmapsAtBlockNumber",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint32",
+            "name": "orderId",
+            "type": "uint32"
+          },
+          {
+            "internalType": "address",
+            "name": "maker",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "taker",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "inputToken",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "inputAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "outputToken",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "outputAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "expiry",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint32",
+            "name": "targetNetworkNumber",
+            "type": "uint32"
+          }
+        ],
+        "internalType": "struct IOrderBook.Order",
+        "name": "order",
+        "type": "tuple"
+      }
+    ],
+    "name": "hashOrder",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IPauserRegistry",
+        "name": "_pauserRegistry",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "initialOwner",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_aggregator",
+        "type": "address"
+      }
+    ],
+    "name": "initialize",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "newPausedStatus",
+        "type": "uint256"
+      }
+    ],
+    "name": "pause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "pauseAll",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint8",
+        "name": "index",
+        "type": "uint8"
+      }
+    ],
+    "name": "paused",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "paused",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "pauserRegistry",
+    "outputs": [
+      {
+        "internalType": "contract IPauserRegistry",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "registryCoordinator",
+    "outputs": [
+      {
+        "internalType": "contract IRegistryCoordinator",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "renounceOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "quorumNumbers",
+        "type": "bytes"
+      },
+      {
+        "internalType": "uint32",
+        "name": "quorumThresholdPercentage",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "createdBlock",
+        "type": "uint32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "recipient",
+            "type": "address"
+          },
+          {
+            "internalType": "uint32",
+            "name": "referenceOrderIndex",
+            "type": "uint32"
+          }
+        ],
+        "internalType": "struct IOrderBook.OrderResponse",
+        "name": "orderResponse",
+        "type": "tuple"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint32[]",
+            "name": "nonSignerQuorumBitmapIndices",
+            "type": "uint32[]"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "X",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "Y",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct BN254.G1Point[]",
+            "name": "nonSignerPubkeys",
+            "type": "tuple[]"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "X",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "Y",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct BN254.G1Point[]",
+            "name": "quorumApks",
+            "type": "tuple[]"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256[2]",
+                "name": "X",
+                "type": "uint256[2]"
+              },
+              {
+                "internalType": "uint256[2]",
+                "name": "Y",
+                "type": "uint256[2]"
+              }
+            ],
+            "internalType": "struct BN254.G2Point",
+            "name": "apkG2",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "internalType": "uint256",
+                "name": "X",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "Y",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct BN254.G1Point",
+            "name": "sigma",
+            "type": "tuple"
+          },
+          {
+            "internalType": "uint32[]",
+            "name": "quorumApkIndices",
+            "type": "uint32[]"
+          },
+          {
+            "internalType": "uint32[]",
+            "name": "totalStakeIndices",
+            "type": "uint32[]"
+          },
+          {
+            "internalType": "uint32[][]",
+            "name": "nonSignerStakeIndices",
+            "type": "uint32[][]"
+          }
+        ],
+        "internalType": "struct IBLSSignatureChecker.NonSignerStakesAndSignature",
+        "name": "nonSignerStakesAndSignature",
+        "type": "tuple"
+      }
+    ],
+    "name": "respondToFulfill",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IPauserRegistry",
+        "name": "newPauserRegistry",
+        "type": "address"
+      }
+    ],
+    "name": "setPauserRegistry",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bool",
+        "name": "value",
+        "type": "bool"
+      }
+    ],
+    "name": "setStaleStakesForbidden",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "stakeRegistry",
+    "outputs": [
+      {
+        "internalType": "contract IStakeRegistry",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "staleStakesForbidden",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "msgHash",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "X",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "Y",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct BN254.G1Point",
+        "name": "apk",
+        "type": "tuple"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256[2]",
+            "name": "X",
+            "type": "uint256[2]"
+          },
+          {
+            "internalType": "uint256[2]",
+            "name": "Y",
+            "type": "uint256[2]"
+          }
+        ],
+        "internalType": "struct BN254.G2Point",
+        "name": "apkG2",
+        "type": "tuple"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "X",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "Y",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct BN254.G1Point",
+        "name": "sigma",
+        "type": "tuple"
+      }
+    ],
+    "name": "trySignatureAndApkVerification",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "pairingSuccessful",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "siganatureIsValid",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "newPausedStatus",
+        "type": "uint256"
+      }
+    ],
+    "name": "unpause",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint32",
+            "name": "orderId",
+            "type": "uint32"
+          },
+          {
+            "internalType": "address",
+            "name": "maker",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "taker",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "inputToken",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "inputAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "outputToken",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "outputAmount",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "expiry",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint32",
+            "name": "targetNetworkNumber",
+            "type": "uint32"
+          }
+        ],
+        "internalType": "struct IOrderBook.Order",
+        "name": "order",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bytes",
+        "name": "signature",
+        "type": "bytes"
+      }
+    ],
+    "name": "verify",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

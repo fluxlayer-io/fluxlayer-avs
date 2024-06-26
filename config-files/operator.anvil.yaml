@@ -10,13 +10,13 @@ operator_address: 0x860B6912C2d0337ef05bbC89b0C2CB6CbAEAB4A5
 # TODO(samlaf): automate updating these addresses when we deploy new contracts
 #avs_registry_coordinator_address: 0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9
 # https://github.com/Layr-Labs/eigenlayer-middleware?tab=readme-ov-file
-avs_registry_coordinator_address: 0x6ee1C7d7ED1Abad9CC40C9Abe559f1441d18E401
+avs_registry_coordinator_address: 0x622c3F3ef806ea5fa8dc7BEB8C5e0a4Aa3743992
 #operator_state_retriever_address: 0x95401dc811bb5740090279Ba06cfA8fcF6113778
-operator_state_retriever_address: 0x010Bf742754D02110d4F4783Fd4eaD408F89dF61
+operator_state_retriever_address: 0x1A006c56b8a336896D679493aB7cdD6017921a95
 # holesky
-order_book_address: 0x6910DC4431f3853C5f18b557a19a6Eb662A8667d
+order_book_address: 0x2E7D07Fec496bF9d9ce3E9758d57bf77e1bc6600
 # sepolia
-settlement_address: 0x29f3DD471248f0405bEa909bbAd584a2fCAAE423
+settlement_address: 0x84C72125e220dfDfcf3994b11965e10D5944c73e
 
 # ETH RPC URL
 # holesky
@@ -56,4 +56,4 @@ enable_node_api: true
 register_operator_on_startup: true
 # address of token to deposit tokens into when registering on startup
 # addresses.erc20MockStrategy in tests/anvil/flux_layer_avs_deployment_output.json
-token_strategy_addr: 0x654b7D87f731715bC5FbE17a14425b6a34F7A040
+token_strategy_addr: 0xAB8B38F5de653738412d48D12d4760627a1e3E22
