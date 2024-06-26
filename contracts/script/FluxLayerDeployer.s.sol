@@ -40,8 +40,7 @@ contract FluxLayerDeployer is Script, Utils {
     uint32 public constant TASK_RESPONSE_WINDOW_BLOCK = 30;
     uint32 public constant TASK_DURATION_BLOCKS = 0;
     // TODO: right now hardcoding these (this address is anvil's default address 9)
-    address public constant AGGREGATOR_ADDR =
-    0xa0Ee7A142d267C1f36714E4a8F75612F20a79720;
+    address public constant AGGREGATOR_ADDR = 0x309244331B1e0c96B2B8D1C1b42251416efE7c60;
 
     // ERC20 and Strategy: we need to deploy this erc20, create a strategy for it, and whitelist this strategy in the strategymanager
 

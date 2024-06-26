@@ -1,16 +1,16 @@
 {
   "addresses": {
-    "erc20Mock": "0x35f3091B6315D718b9c50FdB9F2f497B4952799f",
-    "erc20MockStrategy": "0xAB8B38F5de653738412d48D12d4760627a1e3E22",
-    "fluxLayerServiceManager": "0x4ABD004Bb63C8c39753Af1538Ffa0015CB02A64E",
-    "fluxLayerServiceManagerImplementation": "0xcb1A57445781baD3257D4d968E8828E1a32E253C",
+    "erc20Mock": "0x7e0e085AcC7ae9Bda1899622668aca6a294b8a91",
+    "erc20MockStrategy": "0xbdba734EF0fFd8128F8665F8BBf118D76883F033",
+    "fluxLayerServiceManager": "0x136c91cBBb5aBd14BCed7cF34fc163d20B04b856",
+    "fluxLayerServiceManagerImplementation": "0x50D15FD2eA063796b0BFc975f30c19463532845b",
     "inputToken": "0xC36E19B16c276D10BE40c7b9D3c026E8f482f2aD",
-    "operatorStateRetriever": "0x1A006c56b8a336896D679493aB7cdD6017921a95",
-    "orderBook": "0x2E7D07Fec496bF9d9ce3E9758d57bf77e1bc6600",
-    "orderBookImplementation": "0xE2479De2F7B0E9D0d5b936a95e4A989c37A41B13",
+    "operatorStateRetriever": "0xf02591Fd1e9a99Fa41354dc3dB6F011D77590b95",
+    "orderBook": "0x6D26A188C826Af13fF97C8cB70245676af187a2F",
+    "orderBookImplementation": "0x95727EdA2D2A7BF5DE7D336Cb3040fdb72c66bD5",
     "outputToken": "0x6CE1551CE42d92e2E70De97d963C027E5a70F621",
-    "registryCoordinator": "0x622c3F3ef806ea5fa8dc7BEB8C5e0a4Aa3743992",
-    "registryCoordinatorImplementation": "0x3D11E583b62dAF3702F0F58e606F755C0a7BcC16",
-    "settlement": "0x84C72125e220dfDfcf3994b11965e10D5944c73e"
+    "registryCoordinator": "0xFd5B1A94B2De8f794Ba02ac6765c851720a285f0",
+    "registryCoordinatorImplementation": "0x28c848b020fdEbB07FEf5c5d48512C5CC1F6ECcd",
+    "settlement": "0x1d293678a9d1d2eDDFE2345ce80f072c6a7ef5d9"
   }
 }
