@@ -26,7 +26,7 @@ type AvsWriterer interface {
 		pubkeysOfNonSigningOperators []orderbook.BN254G1Point,
 	) (*types.Receipt, error)
 	SendAggregatedResponse(ctx context.Context,
-		order orderbook.IOrderBookOrder,
+		blockNumber uint32,
 		orderResponse orderbook.IOrderBookOrderResponse,
 		nonSignerStakesAndSignature orderbook.IBLSSignatureCheckerNonSignerStakesAndSignature,
 	) (*types.Receipt, error)
@@ -69,7 +69,7 @@ func NewAvsWriter(avsRegistryWriter avsregistry.AvsRegistryWriter, avsServiceBin
 
 func (w *AvsWriter) SendAggregatedResponse(
 	ctx context.Context,
-	order orderbook.IOrderBookOrder,
+	blockNumber uint32,
 	orderResponse orderbook.IOrderBookOrderResponse,
 	nonSignerStakesAndSignature orderbook.IBLSSignatureCheckerNonSignerStakesAndSignature,
 ) (*types.Receipt, error) {
@@ -79,7 +79,8 @@ func (w *AvsWriter) SendAggregatedResponse(
 		return nil, err
 	}
 	orderExec, _ := w.AvsContractBindings.Settlement.AllOrderExecutions(&bind.CallOpts{}, orderResponse.ReferenceOrderIndex)
-	tx, err := w.AvsContractBindings.OrderBook.RespondToFulfill(txOpts, orderExec.QuorumNumbers, orderExec.QuorumThresholdPercentage, orderExec.CreatedBlock, orderResponse, nonSignerStakesAndSignature)
+	w.logger.Info("Fulfill created block", "block", orderExec.CreatedBlock)
+	tx, err := w.AvsContractBindings.OrderBook.RespondToFulfill(txOpts, orderExec.QuorumNumbers, orderExec.QuorumThresholdPercentage, blockNumber, orderResponse, nonSignerStakesAndSignature)
 	if err != nil {
 		w.logger.Error("Error submitting SubmitTaskResponse tx while calling respondToTask", "err", err)
 		return nil, err

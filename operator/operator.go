@@ -330,12 +330,13 @@ func (o *Operator) Start(ctx context.Context) error {
 			o.metrics.IncNumTasksReceived()
 			o.logger.Info("Received fulfillment log", "fulfillmentLog", fulfillmentLog)
 			go func() {
+				blockNumber, _ := o.ethClient.BlockNumber(ctx)
 				taskResponse := o.ProcessNewFulfillmentLog(fulfillmentLog)
 				signedTaskResponse, err := o.SignTaskResponse(taskResponse)
 				if err != nil {
 					return
 				}
-				go o.aggregatorRpcClient.SendSignedTaskResponseToAggregator(fulfillmentLog, signedTaskResponse)
+				go o.aggregatorRpcClient.SendSignedTaskResponseToAggregator(fulfillmentLog, signedTaskResponse, uint32(blockNumber))
 			}()
 		}
 	}
@@ -381,8 +382,8 @@ func (o *Operator) waitForTransactionSuccess(ctx context.Context, ethClient eth.
 				// Transaction is successful
 				for {
 					curBlockNumber, _ := ethClient.BlockNumber(ctx)
-					// wait for 2 block confirmations
-					if curBlockNumber > blockNumber.Uint64()+2 {
+					// wait for 1 block confirmation
+					if curBlockNumber > blockNumber.Uint64() {
 						return true
 					}
 				}

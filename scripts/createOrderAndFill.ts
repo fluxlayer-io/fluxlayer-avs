@@ -44,7 +44,7 @@ async function main() {
     console.log(`https://holesky.etherscan.io/tx/${tx.hash}`);
     // fulfill order by taker on sepolia, by calling fillOrder in contract Settlement
     const settlement = new Contract(addresses.settlement, SettlementABI, taker2);
-    const tx2 = await settlement.fulfill([order.orderId, order.from, order.receiver, order.sellToken, order.sellAmount, order.buyToken, order.buyAmount, order.validTo, order.targetNetworkNumber], 100, ethers.getBytes('0x01'), order.signature);
+    const tx2 = await settlement.fulfill([order.orderId, order.from, order.receiver, order.sellToken, order.sellAmount, order.buyToken, order.buyAmount, order.validTo, order.targetNetworkNumber], 100, ethers.getBytes('0x00'), order.signature);
     await tx2.wait();
     // log etherscan url
     console.log(`https://sepolia.etherscan.io/tx/${tx2.hash}`);
