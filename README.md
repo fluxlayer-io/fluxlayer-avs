@@ -1,5 +1,8 @@
 # Intro
 
+## System Architect
+![image](https://github.com/fluxlayer-io/fluxlayer-avs/assets/148800/b191024b-2b7e-487c-9909-8a857e519531)
+
 Assets:
 - Token A (Holesky)
 - Token B (Sepolia)
