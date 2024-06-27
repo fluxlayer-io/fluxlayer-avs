@@ -68,11 +68,14 @@ type Aggregator struct {
 	avsWriter        chainio.AvsWriterer
 	// aggregation related fields
 	blsAggregationService blsagg.BlsAggregationService
-	tasks                 map[types.TaskIndex]orderbook.IOrderBookOrder
-	tasksMu               sync.RWMutex
-	taskResponses         map[types.TaskIndex]map[sdktypes.TaskResponseDigest]orderbook.IOrderBookOrderResponse
-	taskResponsesMu       sync.RWMutex
-	orderBook             *OrderBook
+	tasks                 map[types.TaskIndex]struct {
+		Order       orderbook.IOrderBookOrder
+		BlockNumber uint32
+	}
+	tasksMu         sync.RWMutex
+	taskResponses   map[types.TaskIndex]map[sdktypes.TaskResponseDigest]orderbook.IOrderBookOrderResponse
+	taskResponsesMu sync.RWMutex
+	orderBook       *OrderBook
 }
 
 // NewAggregator creates a new Aggregator with the provided config.
@@ -113,9 +116,12 @@ func NewAggregator(c *config.Config) (*Aggregator, error) {
 		serverIpPortAddr:      c.AggregatorServerIpPortAddr,
 		avsWriter:             avsWriter,
 		blsAggregationService: blsAggregationService,
-		tasks:                 make(map[sdktypes.TaskIndex]orderbook.IOrderBookOrder),
-		taskResponses:         make(map[types.TaskIndex]map[sdktypes.TaskResponseDigest]orderbook.IOrderBookOrderResponse),
-		orderBook:             &OrderBook{},
+		tasks: make(map[sdktypes.TaskIndex]struct {
+			Order       orderbook.IOrderBookOrder
+			BlockNumber uint32
+		}),
+		taskResponses: make(map[types.TaskIndex]map[sdktypes.TaskResponseDigest]orderbook.IOrderBookOrderResponse),
+		orderBook:     &OrderBook{},
 	}, nil
 }
 
@@ -175,7 +181,7 @@ func (agg *Aggregator) sendAggregatedResponseToContract(blsAggServiceResp blsagg
 	taskResponse := agg.taskResponses[blsAggServiceResp.TaskIndex][blsAggServiceResp.TaskResponseDigest]
 	agg.logger.Info("TaskResponse", "taskResponse", taskResponse)
 	agg.taskResponsesMu.RUnlock()
-	_, err := agg.avsWriter.SendAggregatedResponse(context.Background(), task, taskResponse, nonSignerStakesAndSignature)
+	_, err := agg.avsWriter.SendAggregatedResponse(context.Background(), task.BlockNumber, taskResponse, nonSignerStakesAndSignature)
 	if err != nil {
 		agg.logger.Error("Aggregator failed to respond to task", "err", err)
 	}

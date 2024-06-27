@@ -7,6 +7,7 @@ dotenv.config();
 // The named list of all type definitions
 const types = {
     Order: [
+        {name: 'orderId', type: 'uint32'},
         {name: 'maker', type: 'address'},
         {name: 'taker', type: 'address'},
         {name: 'inputToken', type: 'address'},
@@ -19,30 +20,32 @@ const types = {
 };
 
 // The data to sign
-const value = {
-    maker: '0x2e4B14254CE56D195922Cf1F4C7E97745EE90005',
+export const sampleOrder = {
+    orderId: 11,
+    maker: '0x6f43BB66B9B22057bb5B752a70481efb12166d0D',
     taker: '0x0000000000000000000000000000000000000000',
-    inputToken: '0xc7183455a4C133Ae270771860664b6B7ec320bB1',
-    inputAmount: 100,
-    outputToken: '0xa0Cb889707d426A7A386870A03bc70d1b0697598',
-    outputAmount: 100,
-    expiry: 1001,
-    targetNetworkNumber: 17000,
+    inputToken: '0xC36E19B16c276D10BE40c7b9D3c026E8f482f2aD',
+    inputAmount: ethers.getBigInt('10000'),
+    outputToken: '0x6CE1551CE42d92e2E70De97d963C027E5a70F621',
+    outputAmount: ethers.getBigInt('10000'),
+    expiry: 9999999999,
+    targetNetworkNumber: 11155111,
 };
 
 async function main() {
-    const signer = new ethers.Wallet(process.env.PRIVATE_KEY!);
+    const signer = new ethers.Wallet(process.env.MAKER_PRIVATE_KEY!);
+    // read maker address
+    console.log(signer.address);
     const domain: TypedDataDomain = {
-        name: 'Settlement',
+        name: 'OrderBook',
         version: '1.0',
         chainId: 17000,
-        verifyingContract: '0xF62849F9A0B5Bf2913b396098F7c7019b51A820a'
+        verifyingContract: '0x6D26A188C826Af13fF97C8cB70245676af187a2F'
     };
-    const signature = await signer.signTypedData(domain, types, value);
+    const signature = await signer.signTypedData(domain, types, sampleOrder);
     // log hashed domain
     console.log(ethers.TypedDataEncoder.hashDomain(domain));
     console.log(signature);
-    // 0xd8829e185303d3eb7347d38e7cbfc4019721fec60b9341886d783354766ed5f4368f39e39202cb861152c0332d66e50960e46f0f5e8f15a122505fa1b3a801dc1c
 }
 
 main();

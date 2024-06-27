@@ -18,7 +18,7 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
     address taker = vm.addr(pk);
     address aggregator =
     address(uint160(uint256(keccak256(abi.encodePacked("aggregator")))));
-    uint256 makerPk = vm.envUint("PRIVATE_KEY");
+    uint256 makerPk = 1;
     uint256 fakeMakerPk = 2;
     address maker = vm.addr(makerPk);
     address inputToken;
@@ -65,13 +65,12 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
         console.logBytes(sig);
         invalidSig = signHash(fakeMakerPk, eip712Utils.getTypedDataHash(order));
         // mint mock tokens to maker and taker
-        inputErc20.mint(maker, inputAmount);
         outputErc20.mint(taker, outputAmount);
+        inputErc20.mint(maker, inputAmount);
         // taker create order
         vm.startPrank(taker);
         orderBook.createOrder(order, sig);
         vm.stopPrank();
-        vm.createSelectFork("sepolia_fork");
         settlement = new Settlement(address(orderBook), signChainId);
     }
 
@@ -98,6 +97,7 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
     }
 
     function testFulFill() public {
+        vm.chainId(sepolia);
         vm.prank(taker);
         settlement.fulfill(order, quorumThresholdPercentage, quorumNumbers, sig);
     }

@@ -330,12 +330,13 @@ func (o *Operator) Start(ctx context.Context) error {
 			o.metrics.IncNumTasksReceived()
 			o.logger.Info("Received fulfillment log", "fulfillmentLog", fulfillmentLog)
 			go func() {
+				blockNumber, _ := o.ethClient.BlockNumber(ctx)
 				taskResponse := o.ProcessNewFulfillmentLog(fulfillmentLog)
 				signedTaskResponse, err := o.SignTaskResponse(taskResponse)
 				if err != nil {
 					return
 				}
-				go o.aggregatorRpcClient.SendSignedTaskResponseToAggregator(fulfillmentLog, signedTaskResponse)
+				go o.aggregatorRpcClient.SendSignedTaskResponseToAggregator(fulfillmentLog, signedTaskResponse, uint32(blockNumber))
 			}()
 		}
 	}
@@ -375,9 +376,17 @@ func (o *Operator) waitForTransactionSuccess(ctx context.Context, ethClient eth.
 		default:
 			// Check transaction status
 			receipt, _ := ethClient.TransactionReceipt(ctx, common.HexToHash(txHash))
+			// Wait for two blocks
+			blockNumber := receipt.BlockNumber
 			if receipt != nil {
 				// Transaction is successful
-				return true
+				for {
+					curBlockNumber, _ := ethClient.BlockNumber(ctx)
+					// wait for 1 block confirmation
+					if curBlockNumber > blockNumber.Uint64() {
+						return true
+					}
+				}
 			}
 			// Transaction not yet successful, wait for a while before checking again
 			o.logger.Info("Waiting for transaction to be mined", "txHash", txHash)

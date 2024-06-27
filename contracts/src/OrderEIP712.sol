@@ -13,7 +13,7 @@ contract OrderEIP712 {
     );
     bytes32 private immutable _HASHED_NAME;
     bytes32 private immutable _HASHED_VERSION;
-    bytes32 private immutable _ORDER_TYPE_HASH = keccak256("Order(uint32,address maker,address taker,address inputToken,uint256 inputAmount,address outputToken,uint256 outputAmount,uint256 expiry,uint32 targetNetworkNumber)");
+    bytes32 private immutable _ORDER_TYPE_HASH = keccak256("Order(uint32 orderId,address maker,address taker,address inputToken,uint256 inputAmount,address outputToken,uint256 outputAmount,uint256 expiry,uint32 targetNetworkNumber)");
     uint32 private immutable _CHAIN_ID;
     address _ORDERBOOK_ADDR;
 

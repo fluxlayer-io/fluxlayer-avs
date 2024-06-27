@@ -40,7 +40,7 @@ func (m *MockAggregatorRpcClienter) EXPECT() *MockAggregatorRpcClienterMockRecor
 }
 
 // SendSignedTaskResponseToAggregator mocks base method.
-func (m *MockAggregatorRpcClienter) SendSignedTaskResponseToAggregator(arg0 *settlement.ContractSettlementFulfillEvent, arg1 *aggregator.SignedTaskResponse) {
+func (m *MockAggregatorRpcClienter) SendSignedTaskResponseToAggregator(arg0 *settlement.ContractSettlementFulfillEvent, arg1 *aggregator.SignedTaskResponse, arg2 uint32) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SendSignedTaskResponseToAggregator", arg0, arg1)
 }

@@ -52,6 +52,7 @@ type SignedTaskResponse struct {
 type TaskResponseWrapper struct {
 	Fulfillment        *settlement.ContractSettlementFulfillEvent
 	SignedTaskResponse *SignedTaskResponse
+	BlockNumber        uint32
 }
 
 // rpc endpoint which is called by operator
@@ -64,7 +65,7 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	agg.logger.Infof("Initializing new task for order %d, block %d", fulfillment.Order.OrderId, fulfillment.Raw.BlockNumber)
 	// TODO: set quorum number, threshold percentage, and timeout as constants
 	// check order sig from event with sig in db
-	sig := common.Bytes2Hex(fulfillment.Sig)
+	sig := "0x" + common.Bytes2Hex(fulfillment.Sig)
 	o := agg.orderBook.GetOrder(fulfillment.Order.OrderId)
 	if o == nil {
 		return errors.New("off-chain order does not exist")
@@ -74,7 +75,11 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	}
 	agg.blsAggregationService.InitializeNewTask(fulfillment.Order.OrderId, uint32(fulfillment.Raw.BlockNumber), aggtypes.QUORUM_NUMBERS, types.QuorumThresholdPercentages{100}, time.Second*3600)
 	agg.tasksMu.Lock()
-	agg.tasks[fulfillment.Order.OrderId] = orderbook.IOrderBookOrder{
+	agg.tasks[fulfillment.Order.OrderId] = struct {
+		Order       orderbook.IOrderBookOrder
+		BlockNumber uint32
+	}{orderbook.IOrderBookOrder{
+		OrderId:             order.OrderId,
 		Maker:               order.Maker,
 		Taker:               order.Taker,
 		InputToken:          order.InputToken,
@@ -83,7 +88,7 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 		OutputAmount:        order.OutputAmount,
 		Expiry:              order.Expiry,
 		TargetNetworkNumber: order.TargetNetworkNumber,
-	}
+	}, taskResponse.BlockNumber}
 	agg.tasksMu.Unlock()
 	agg.logger.Infof("Received signed task response: %#v", signedTaskResponse)
 	taskIndex := signedTaskResponse.TaskResponse.ReferenceOrderIndex
