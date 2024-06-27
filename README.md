@@ -28,3 +28,11 @@ Holesky:
 forge script script/FluxLayerDeployer.s.sol:FluxLayerDeployer --rpc-url http://127.0.0.1:8545  --private-key ${PRIVATE_KEY} --legacy --broadcast`
 3. Start aggregator: `make start-aggregator`
 4. Update contract address and start operator: `make start-operator`
+
+## Testnet
+1. Deploy contracts to testnet: `cd contracts
+forge script script/FluxLayerDeployer.s.sol:FluxLayerDeployer  --legacy --broadcast --verify`
+2. Update operator.anvil.yaml, aggregator.yaml with deployed addresses
+3. Start aggregator: `make start-aggregator`
+4. Start operator: `make start-operator`
+5. Taker fulfil order: `yarn ts-node scripts/createOrderAndFill.ts`
