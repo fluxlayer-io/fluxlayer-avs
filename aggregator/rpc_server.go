@@ -63,7 +63,7 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	fulfillment := taskResponse.Fulfillment
 	order := fulfillment.Order
 	agg.logger.Infof("Initializing new task for order %d, block %d", fulfillment.Order.OrderId, fulfillment.Raw.BlockNumber)
-	// TODO: set quorum number, threshold percentage, and timeout as constants
+	// TODO: set quorum number and timeout as constants
 	// check order sig from event with sig in db
 	sig := "0x" + common.Bytes2Hex(fulfillment.Sig)
 	o := agg.orderBook.GetOrder(fulfillment.Order.OrderId)
@@ -73,7 +73,13 @@ func (agg *Aggregator) ProcessSignedTaskResponse(taskResponse *TaskResponseWrapp
 	if sig != o.Sig {
 		return fmt.Errorf("order signature does not match, got=[%s], expected=[%s]", sig, o.Sig)
 	}
-	agg.blsAggregationService.InitializeNewTask(fulfillment.Order.OrderId, uint32(fulfillment.Raw.BlockNumber), aggtypes.QUORUM_NUMBERS, types.QuorumThresholdPercentages{100}, time.Second*3600)
+	// The quorum threshold is per-order: it is whatever the taker requested in their
+	// Settlement.fulfill() call (fulfillment.QuorumThresholdPercentage, emitted on-chain in
+	// FulfillEvent) rather than a fixed protocol-wide constant. This used to be hardcoded to
+	// 100 here, which silently ignored whatever threshold the taker actually asked for and
+	// made it impossible to vary tau per order (e.g. for a parameter-sensitivity sweep).
+	quorumThresholdPercentage := sdktypes.QuorumThresholdPercentage(fulfillment.QuorumThresholdPercentage)
+	agg.blsAggregationService.InitializeNewTask(fulfillment.Order.OrderId, uint32(fulfillment.Raw.BlockNumber), aggtypes.QUORUM_NUMBERS, types.QuorumThresholdPercentages{quorumThresholdPercentage}, time.Second*3600)
 	agg.tasksMu.Lock()
 	agg.tasks[fulfillment.Order.OrderId] = struct {
 		Order       orderbook.IOrderBookOrder

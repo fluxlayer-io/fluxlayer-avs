@@ -13,7 +13,7 @@ contract SettlementTest is BLSMockAVSDeployer, SignUtils {
     OrderBook public orderBook;
     Settlement public settlement;
     EIP712Utils public eip712Utils;
-    uint256 pk = vm.envUint("PRIVATE_KEY");
+    uint256 pk = 3; // throwaway test-only key (was: vm.envUint("PRIVATE_KEY"), which made `forge test` fail out of the box)
     uint32 orderId = 1;
     address taker = vm.addr(pk);
     address aggregator =

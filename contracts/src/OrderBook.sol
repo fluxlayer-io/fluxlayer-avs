@@ -101,6 +101,20 @@ OrderEIP712
             nonSignerStakesAndSignature
         );
 
+        // Enforce that the signed stake actually meets the requested quorum threshold.
+        // checkSignatures() only verifies that the aggregate BLS signature is valid for
+        // whichever operators signed -- it does NOT check what fraction of quorum stake
+        // that represents. Without this loop, a caller (the aggregator) could supply a
+        // valid signature from a single low-stake operator together with an arbitrary
+        // quorumThresholdPercentage and still have the order marked fulfilled.
+        for (uint256 i = 0; i < quorumNumbers.length; i++) {
+            require(
+                uint256(quorumStakeTotals.signedStakeForQuorum[i]) * _THRESHOLD_DENOMINATOR >=
+                    uint256(quorumStakeTotals.totalStakeForQuorum[i]) * uint256(quorumThresholdPercentage),
+                "OrderBook.respondToFulfill: signed stake fails quorum threshold check"
+            );
+        }
+
         OrderResponseMetadata memory orderResponseMetadata = OrderResponseMetadata(
             uint32(block.number),
             hashOfNonSigners

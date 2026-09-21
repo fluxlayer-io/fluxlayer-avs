@@ -1,11 +1,11 @@
 package types
 
 import (
-	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
+	orderbook "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/OrderBook"
 )
 
 type TaskResponseData struct {
-	OrderResponse             settlement.SettlementOrderResponse
-	OrderResponseMetadata     settlement.SettlementOrderResponseMetadata
-	NonSigningOperatorPubKeys []settlement.BN254G1Point
+	OrderResponse             orderbook.IOrderBookOrderResponse
+	OrderResponseMetadata     orderbook.IOrderBookOrderResponseMetadata
+	NonSigningOperatorPubKeys []orderbook.BN254G1Point
 }

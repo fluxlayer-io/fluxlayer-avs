@@ -1,10 +1,7 @@
 package aggregator
 
 import (
-	settlement "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/Settlement"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/common"
-	gethcore "github.com/ethereum/go-ethereum/core"
+	orderbook "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/OrderBook"
 	"go.uber.org/mock/gomock"
 	"math/big"
 
@@ -26,6 +23,13 @@ type MockTask struct {
 	TxSuccess   bool
 }
 
+// createMockAggregator builds an Aggregator wired up with mocked avsWriter and
+// blsAggregationService dependencies. The struct literal here must track the real
+// Aggregator struct in aggregator.go (tasks/taskResponses keyed by orderbook types, plus
+// the off-chain orderBook) -- this previously referenced fields (orders/orderResponses)
+// and types (settlement.SettlementOrder, settlement.SettlementOrderResponse) that no
+// longer exist on Aggregator or in the Settlement bindings, which meant this whole test
+// package failed to even compile.
 func createMockAggregator(
 	mockCtrl *gomock.Controller, operatorPubkeyDict map[sdktypes.OperatorId]types.OperatorInfo,
 ) (*Aggregator, *chainiomocks.MockAvsWriterer, *blsaggservmock.MockBlsAggregationService, error) {
@@ -37,17 +41,12 @@ func createMockAggregator(
 		logger:                logger,
 		avsWriter:             mockAvsWriter,
 		blsAggregationService: mockBlsAggregationService,
-		orders:                make(map[types.OrderIndex]settlement.SettlementOrder),
-		orderResponses:        make(map[types.OrderIndex]map[sdktypes.TaskResponseDigest]settlement.SettlementOrderResponse),
+		tasks: make(map[sdktypes.TaskIndex]struct {
+			Order       orderbook.IOrderBookOrder
+			BlockNumber uint32
+		}),
+		taskResponses: make(map[sdktypes.TaskIndex]map[sdktypes.TaskResponseDigest]orderbook.IOrderBookOrderResponse),
+		orderBook:     &OrderBook{},
 	}
 	return aggregator, mockAvsWriter, mockBlsAggregationService, nil
-}
-
-// just a mock ethclient to pass to bindings
-// so that we can access abi methods
-func createMockEthClient() *backends.SimulatedBackend {
-	genesisAlloc := map[common.Address]gethcore.GenesisAccount{}
-	blockGasLimit := uint64(1000000)
-	client := backends.NewSimulatedBackend(genesisAlloc, blockGasLimit)
-	return client
 }
